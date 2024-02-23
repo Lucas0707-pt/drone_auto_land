@@ -3,12 +3,10 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     return LaunchDescription([
-        #processes.py node
         Node(
             package='drone_auto_land',
-            executable='processes',
-            name='processes',
+            executable='uav_camera_sim',
+            name='uav_camera_sim',
             output='screen'
         ),
     ])
-

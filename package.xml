@@ -7,6 +7,14 @@
   <maintainer email="luislucas0707@gmail.com">lucas</maintainer>
   <license>Apache-2.0</license>
 
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>cv_bridge</exec_depend>
+  <exec_depend>opencv2</exec_depend>
+
+
+
+
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>

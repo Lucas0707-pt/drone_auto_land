@@ -23,7 +23,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'processes = drone_auto_land.processes:main'
+            'processes = drone_auto_land.processes:main',
+            'uav_camera_sim = drone_auto_land.uav_camera_sim:main'
         ],
     },
 )
