@@ -26,9 +26,6 @@ class MarkerDetector(Node):
         fourcc = cv.VideoWriter_fourcc(*'XVID')
         self.out = cv.VideoWriter('output.avi', fourcc, 20.0, (640, 480))
 
-        # Flag to indicate if recording is active
-        self.is_recording = True
-
     def image_callback(self, msg):
         # Convert the ROS Image message to a CV Image
         cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
@@ -37,16 +34,27 @@ class MarkerDetector(Node):
 
         # Undistort the image
         cv_image = cv.undistort(cv_image, self.camera_matrix, self.distortion_coeffs)
+        
+        gray = cv.cvtColor(cv_image, cv.COLOR_BGR2GRAY)
+        gray = cv.GaussianBlur(gray, (3, 3), 0)
 
         # Perform marker detection
         aruco_dict = cv.aruco.Dictionary_get(cv.aruco.DICT_6X6_250)
         parameters = cv.aruco.DetectorParameters_create()
-        corners, ids, _ = cv.aruco.detectMarkers(cv_image, aruco_dict, parameters=parameters)
+        corners, ids, _ = cv.aruco.detectMarkers(gray, aruco_dict, parameters=parameters)
 
         # If at least one marker detected
         if len(corners) > 0:
             # Draw detected markers on the image
             cv_image = cv.aruco.drawDetectedMarkers(cv_image, corners, ids)
+
+            #center of the marker
+            for i in range(len(corners)):
+                c = corners[i][0]
+                cx = int((c[0][0] + c[1][0] + c[2][0] + c[3][0]) / 4)
+                cy = int((c[0][1] + c[1][1] + c[2][1] + c[3][1]) / 4)
+                cv.circle(cv_image, (cx, cy), 5, (0, 0, 255), -1)
+                print("Marker ID: ", ids[i], "Center: ", (cx, cy))
 
             # Estimate pose of each marker and return the values rvec and tvec
             rvecs, tvecs, _ = cv.aruco.estimatePoseSingleMarkers(corners, 0.05, self.camera_matrix, self.distortion_coeffs)
@@ -56,8 +64,7 @@ class MarkerDetector(Node):
                 cv_image = cv.aruco.drawAxis(cv_image, self.camera_matrix, self.distortion_coeffs, rvecs[i], tvecs[i], 0.1)
 
         # Write the frame to the video file
-        if self.is_recording:
-            self.out.write(cv_image)
+        self.out.write(cv_image)
 
 def record_thread(marker_detector):
     input("Press Enter to stop recording...")
