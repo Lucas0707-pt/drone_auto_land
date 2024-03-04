@@ -27,6 +27,7 @@ git clone https://github.com/Lucas0707-pt/drone_auto_land.git
 
 ```bash
 cd ~/ros2_ws
+rosdep install -i --from-path src --rosdistro humble -y
 colcon build
 ```
 
