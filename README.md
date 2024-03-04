@@ -37,8 +37,6 @@ colcon build
 source /opt/ros/humble/setup.bash
 ```
 
-# ros2 launch drone_auto_land drone_auto_land.launch.py say that this is the command to run the project
-
 3. Run processes:
 
 ```bash
