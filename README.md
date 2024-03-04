@@ -10,9 +10,27 @@ This project is designed to enable a drone to autonomously land on a marker usin
 
 ## How to Run
 
-1. Ensure that you have ROS2 Humble and PX4 installed on your system.
+1. Create a new workspace:
 
-2. Source the setup file:
+```bash
+mkdir -p ~/ros2_ws/src
+cd ~/ros2_ws/src
+```
+
+2. Clone the repository:
+
+```bash
+git clone https://github.com/Lucas0707-pt/drone_auto_land.git
+```
+
+3. Build the workspace:
+
+```bash
+cd ~/ros2_ws
+colcon build
+```
+
+4. Source the setup file:
 
 ```bash
 source /opt/ros/humble/setup.bash
@@ -32,12 +50,15 @@ ros2 launch drone_auto_land drone_auto_land.launch.py
 ros2 launch drone_auto_land camera_sim.launch.py
 ```
 
+5. Press Ctrl+C on the terminal running the camera to stop it, the video as output.avi will be saved in the same directory.
+
 ## Dependencies
 
 - Python3
-- ROS2
+- ROS2 Humble
 - PX4
-- OpenCV 4.5.4.60: Install with `pip install opencv-contrib-python==4.5.4.60`
+- MicroXRCEAgent
+- OpenCV 4.5.4
 - numpy
 - sensor_msgs
 - cv_bridge
