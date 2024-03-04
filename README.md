@@ -37,19 +37,19 @@ colcon build
 source /opt/ros/humble/setup.bash
 ```
 
-3. Run processes:
+5. Run processes:
 
 ```bash
 ros2 launch drone_auto_land drone_auto_land.launch.py
 ```
 
-4. Start the camera feed and marker detection:
+6. Start the camera feed and marker detection:
     
 ```bash
 ros2 launch drone_auto_land camera_sim.launch.py
 ```
 
-5. Press Ctrl+C on the terminal running the camera to stop it, the video as output.avi will be saved in the same directory.
+7. Press Ctrl+C on the terminal running the camera to stop it, the video as output.avi will be saved in the same directory.
 
 ## Dependencies
 
