@@ -15,12 +15,15 @@ class MarkerDetector(Node):
             self.image_callback,
             10)
         self.bridge = CvBridge()
+        self.font = cv.FONT_HERSHEY_PLAIN
+        self.marker_size = 20
 
+            
         # Add your camera matrix and distortion coefficients here
         self.camera_matrix = np.array([[4.970870507466349295e+02, 0.000000000000000000e+00, 3.168387473166100108e+02],
                                        [0.000000000000000000e+00, 4.976011127668800782e+02, 2.342740555042151982e+02],
                                        [0.000000000000000000e+00, 0.000000000000000000e+00, 1.000000000000000000e+00]])
-        self.distortion_coeffs = np.array([2.092787575985481374e-01, -3.700562770349383745e-01, -1.151105913997617098e-03, 1.872085490492018858e-03, 2.131628286804855901e-02])
+        self.distortion_coeffs = np.array([0, 0, 0, 0, 0])
 
         # Define the codec and create VideoWriter object
         fourcc = cv.VideoWriter_fourcc(*'XVID')
@@ -33,7 +36,7 @@ class MarkerDetector(Node):
         cv_image = cv.resize(cv_image, (640, 480))
 
         # Undistort the image
-        cv_image = cv.undistort(cv_image, self.camera_matrix, self.distortion_coeffs)
+        #cv_image = cv.undistort(cv_image, self.camera_matrix, self.distortion_coeffs)
         
         gray = cv.cvtColor(cv_image, cv.COLOR_BGR2GRAY)
         gray = cv.GaussianBlur(gray, (3, 3), 0)
@@ -54,17 +57,21 @@ class MarkerDetector(Node):
                 cx = int((c[0][0] + c[1][0] + c[2][0] + c[3][0]) / 4)
                 cy = int((c[0][1] + c[1][1] + c[2][1] + c[3][1]) / 4)
                 cv.circle(cv_image, (cx, cy), 5, (0, 0, 255), -1)
-                print("Marker ID: ", ids[i], "Center: ", (cx, cy))
+                #print("Marker ID: ", ids[i], "Center: ", (cx, cy))
 
             # Estimate pose of each marker and return the values rvec and tvec
-            rvecs, tvecs, _ = cv.aruco.estimatePoseSingleMarkers(corners, 0.05, self.camera_matrix, self.distortion_coeffs)
+            ret = cv.aruco.estimatePoseSingleMarkers(corners, self.marker_size, self.camera_matrix, self.distortion_coeffs)
+            rvec, tvec = ret[0][0,0,:], ret[1][0,0,:]
+            str_position = "MARKER Position x=%4.0f  y=%4.0f  z=%4.0f"%(tvec[0], tvec[1], tvec[2])
+            print(str_position)
+            #cv.putText(cv_image, str_position, (0, 100), self.font, 1, (0, 255, 0), 2, cv.LINE_AA)
+            #cv.aruco.drawAxis(cv_image, self.camera_matrix, self.distortion_coeffs, rvec, tvec, 10)
 
-            # Draw axis for the aruco markers
-            for i in range(len(rvecs)):
-                cv_image = cv.aruco.drawAxis(cv_image, self.camera_matrix, self.distortion_coeffs, rvecs[i], tvecs[i], 0.1)
 
-        # Write the frame to the video file
-        self.out.write(cv_image)
+        #show the image
+        cv.imshow("Image window", cv_image)
+        cv.waitKey(3)
+        
 
 def record_thread(marker_detector):
     input("Press Enter to stop recording...")

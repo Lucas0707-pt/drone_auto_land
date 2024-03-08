@@ -34,7 +34,7 @@ colcon build
 4. Source the setup file:
 
 ```bash
-source /opt/ros/humble/setup.bash
+source install/local_setup.bash
 ```
 
 5. Run processes:
