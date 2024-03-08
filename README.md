@@ -31,7 +31,7 @@ rosdep install -i --from-path src --rosdistro humble -y
 colcon build
 ```
 
-3.1 If you only want to build the drone_auto_land package:
+3. 1) If you only want to build the drone_auto_land package:
 
 ```bash
 colcon build --packages-select drone_auto_land
