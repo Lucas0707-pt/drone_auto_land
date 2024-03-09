@@ -5,6 +5,7 @@ from cv_bridge import CvBridge
 import cv2 as cv
 import numpy as np
 import threading
+from geometry_msgs.msg import PoseStamped
 
 class MarkerDetector(Node):
     def __init__(self):
@@ -14,6 +15,9 @@ class MarkerDetector(Node):
             'camera',
             self.image_callback,
             10)
+        self.aruco_image_pub = self.create_publisher(Image, 'aruco_image', 10)
+        #create a publisher for the marker position named: aruco_pose_local
+        self.aruco_pose_local_pub = self.create_publisher(PoseStamped, 'aruco_pose_local', 10)
         self.bridge = CvBridge()
         self.font = cv.FONT_HERSHEY_PLAIN
         self.marker_size = 20
@@ -28,6 +32,14 @@ class MarkerDetector(Node):
         # Define the codec and create VideoWriter object
         fourcc = cv.VideoWriter_fourcc(*'XVID')
         self.out = cv.VideoWriter('output.avi', fourcc, 20.0, (640, 480))
+
+    def publish_aruco_pose(self, x, y, z):
+        pose = PoseStamped()
+        pose.header.stamp = self.get_clock().now().to_msg()
+        pose.pose.position.x = x
+        pose.pose.position.y = y
+        pose.pose.position.z = z
+        self.aruco_pose_local_pub.publish(pose)
 
     def image_callback(self, msg):
         # Convert the ROS Image message to a CV Image
@@ -63,14 +75,16 @@ class MarkerDetector(Node):
             ret = cv.aruco.estimatePoseSingleMarkers(corners, self.marker_size, self.camera_matrix, self.distortion_coeffs)
             rvec, tvec = ret[0][0,0,:], ret[1][0,0,:]
             str_position = "MARKER Position x=%4.0f  y=%4.0f  z=%4.0f"%(tvec[0], tvec[1], tvec[2])
+            self.publish_aruco_pose(tvec[0], tvec[1], tvec[2])
             print(str_position)
             #cv.putText(cv_image, str_position, (0, 100), self.font, 1, (0, 255, 0), 2, cv.LINE_AA)
             #cv.aruco.drawAxis(cv_image, self.camera_matrix, self.distortion_coeffs, rvec, tvec, 10)
 
-
+        # Publish the image
+        self.aruco_image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, encoding='bgr8'))
         #show the image
-        cv.imshow("Image window", cv_image)
-        cv.waitKey(3)
+        #cv.imshow("Image window", cv_image)
+        #cv.waitKey(3)
         
 
 def record_thread(marker_detector):

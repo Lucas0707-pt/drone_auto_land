@@ -46,8 +46,15 @@ source install/local_setup.bash
 5. Run processes:
 
 ```bash
-ros2 launch drone_auto_land drone_auto_land.launch.py
+ros2 launch drone_auto_land drone_auto_land.launch.py headless:=0
 ```
+
+5. 1) Run processes without Gazebo GUI:
+
+```bash
+ros2 launch drone_auto_land drone_auto_land.launch.py headless:=1
+```
+
 
 6. Start the camera feed and marker detection:
     
