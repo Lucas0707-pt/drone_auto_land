@@ -24,7 +24,8 @@ setup(
     entry_points={
         'console_scripts': [
             'processes = drone_auto_land.processes:main',
-            'uav_camera_sim = drone_auto_land.uav_camera_sim:main'
+            'uav_camera_sim = drone_auto_land.uav_camera_sim:main',
+            'offset_calculator = drone_auto_land.offset_calculator:main'
         ],
     },
 )

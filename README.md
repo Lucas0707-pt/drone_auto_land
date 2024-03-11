@@ -46,20 +46,20 @@ source install/local_setup.bash
 5. Run processes:
 
 ```bash
-ros2 launch drone_auto_land drone_auto_land.launch.py headless:=0
+ros2 launch drone_auto_land processes.launch.py headless:=0
 ```
 
 5. 1) Run processes without Gazebo GUI:
 
 ```bash
-ros2 launch drone_auto_land drone_auto_land.launch.py headless:=1
+ros2 launch drone_auto_land processes.launch.py headless:=1
 ```
 
 
 6. Start the camera feed and marker detection:
     
 ```bash
-ros2 launch drone_auto_land camera_sim.launch.py
+ros2 launch drone_auto_land drone_auto_land.launch.py
 ```
 
 7. Press Ctrl+C on the terminal running the camera to stop it, the video as output.avi will be saved in the same directory.
