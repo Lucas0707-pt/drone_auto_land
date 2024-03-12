@@ -14,8 +14,6 @@ class OffsetCalculator(Node):
             history=HistoryPolicy.KEEP_LAST,
             depth=1
         )
-        self.vehicle_local_position_subscriber = self.create_subscription(
-            VehicleOdometry, '/fmu/out/vehicle_odometry', self.vehicle_odometry_callback, qos_profile)
 
         self.aruco_pose_local_subscriber = self.create_subscription(
             PoseStamped, 'aruco_pose_local', self.aruco_pose_local_callback, 10)
@@ -32,28 +30,25 @@ class OffsetCalculator(Node):
         self.aruco_pose_z = None
 
     def calculate_offset(self):
-        if self.current_x is not None and self.aruco_pose_x is not None:
-            offset_x = self.aruco_pose_x - self.current_x
-            offset_y = self.aruco_pose_y - self.current_y
-            offset_z = self.aruco_pose_z - self.current_z
+        if self.aruco_pose_x is not None:
             offset = PoseStamped()
+            offset_x, offset_y = self.convert_camtouav(self.aruco_pose_x, self.aruco_pose_y)
             offset.pose.position.x = offset_x
             offset.pose.position.y = offset_y
-            offset.pose.position.z = offset_z
             self.offset_publisher.publish(offset)
             
 
-        
-    def vehicle_odometry_callback(self, vehicle_odometry):
-        self.current_x = vehicle_odometry.position[0]
-        self.current_y = vehicle_odometry.position[1]
-        self.current_z = vehicle_odometry.position[2]
+    def convert_camtouav(self, x_cam, y_cam):
+        x_uav = -x_cam
+        y_uav = y_cam
+
+        return x_uav, y_uav 
 
 
     def aruco_pose_local_callback(self, aruco_pose_local):
-        self.aruco_pose_x = aruco_pose_local.pose.position.x
-        self.aruco_pose_y = aruco_pose_local.pose.position.y
-        self.aruco_pose_z = aruco_pose_local.pose.position.z
+        self.aruco_pose_x = aruco_pose_local.pose.position.x/100.0
+        self.aruco_pose_y = aruco_pose_local.pose.position.y/100.0
+        self.aruco_pose_z = aruco_pose_local.pose.position.z/100.0
         self.calculate_offset()
         
 def main(args=None):

@@ -19,7 +19,7 @@ class ProcessesNode(Node):
         px4_sitl_simulation = "cd ../PX4-Autopilot && "
         if self.headless:
             px4_sitl_simulation += "HEADLESS=1 "
-        px4_sitl_simulation += "PX4_GZ_WORLD=aruco make px4_sitl gz_x500_depth ./build/px4_sitl_default/bin/px4"
+        px4_sitl_simulation += "PX4_GZ_WORLD=aruco make px4_sitl gz_x500_depth"
 
         # Run the commands in separate terminals
         subprocess.run(["gnome-terminal", "--tab", "--", "bash", "-c", micro_XRCE_agent + "; exec bash"])
