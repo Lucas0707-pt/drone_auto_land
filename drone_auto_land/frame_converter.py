@@ -24,8 +24,8 @@ class FrameConverter(Node):
         self.vehicle_odometry_sub = self.create_subscription(
             VehicleOdometry, '/fmu/out/vehicle_odometry', self.vehicle_odometry_callback, qos_profile)
         
-        self.aruco_local_frame_pub = self.create_publisher(
-            PoseStamped, 'aruco_local_frame', 10)
+        self.aruco_pose_local_pub = self.create_publisher(
+            PoseStamped, 'aruco_pose_local', 10)
 
         self.current_x = None
         self.current_y = None
@@ -48,7 +48,7 @@ class FrameConverter(Node):
             aruco_pose_local_x, aruco_pose_local_y = self.convert_uav2local(yaw, aruco_pose_uav_x, aruco_pose_uav_y)
             aruco_pose_local.pose.position.x = aruco_pose_local_x
             aruco_pose_local.pose.position.y = aruco_pose_local_y
-            self.aruco_local_frame_pub.publish(aruco_pose_local)
+            self.aruco_pose_local_pub.publish(aruco_pose_local)
 
 
 
