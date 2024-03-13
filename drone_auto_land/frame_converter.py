@@ -51,7 +51,6 @@ class FrameConverter(Node):
             self.aruco_pose_local_pub.publish(aruco_pose_local)
 
 
-
     def convertquat2yaw(self, qw, qx, qy, qz):
         t3 = +2.0 * (qw * qz + qx * qy)
         t4 = +1.0 - 2.0 * (qy * qy + qz * qz)
@@ -64,7 +63,6 @@ class FrameConverter(Node):
 
         return x_uav, y_uav 
     
-
     def convert_uav2local(self, yaw, x_uav, y_uav):
         x_local = (math.cos(yaw) * x_uav - math.sin(yaw) * y_uav) + self.current_x
         y_local = (math.sin(yaw) * x_uav + math.cos(yaw) * y_uav) + self.current_y

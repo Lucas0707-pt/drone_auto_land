@@ -35,14 +35,14 @@ class OffboardLandingController(Node):
             VehicleOdometry, '/fmu/out/vehicle_odometry', self.vehicle_odometry_callback, qos_profile)
         self.vehicle_status_subscriber = self.create_subscription(
             VehicleStatus, '/fmu/out/vehicle_status', self.vehicle_status_callback, qos_profile)
-        self.offset_correction_subscriber = self.create_subscription(
-            PoseStamped, '/offset_correction', self.offset_correction_callback, qos_profile)
+        self.aruco_pose_local_subscriber = self.create_subscription(
+            PoseStamped, 'aruco_pose_local', self.aruco_pose_local_callback, qos_profile)
 
         # Initialize variables
         self.offboard_setpoint_counter = 0
         self.vehicle_odometry = VehicleOdometry()
         self.vehicle_status = VehicleStatus()
-        self.offset_correction = PoseStamped()
+        self.aruco_pose_local = PoseStamped()
 
         # Parameters for landing controller
         self.desired_x = 0.0
@@ -69,11 +69,11 @@ class OffboardLandingController(Node):
         # Create a timer to publish control commands
         self.timer = self.create_timer(0.1, self.timer_callback)
 
-    def offset_correction_callback(self, offset_correction):
+    def aruco_pose_local_callback(self, aruco_pose_local):
         """Callback function for vehicle_offset topic subscriber."""
-        self.offset_correction = offset_correction
-        self.offset_x = offset_correction.pose.position[0]
-        self.offset_y = offset_correction.pose.position[1]
+        self.aruco_pose_local = aruco_pose_local
+        self.offset_x = aruco_pose_local.pose.position[0]
+        self.offset_y = aruco_pose_local.pose.position[1]
         
     def vehicle_odometry_callback(self, vehicle_odometry):
         """Callback function for vehicle_odometry topic subscriber."""
@@ -164,8 +164,8 @@ class OffboardLandingController(Node):
     def update_desired_position(self):
         # Use /offset_correction
         if(self.offset_x is not None and self.offset_y is not None):
-            self.desired_x = self.current_x + self.offset_x
-            self.desired_y = self.current_y + self.offset_y
+            self.desired_x = self.offset_x
+            self.desired_y = self.offset_y
         else:
             self.desired_x = self.current_x
             self.desired_y = self.current_y
@@ -248,10 +248,6 @@ def main(args=None) -> None:
     print('Starting offboard landing controller node...')
     rclpy.init(args=args)
     offboard_landing_controller = OffboardLandingController()
-
-    # Set desired landing position
-    #offboard_landing_controller.desired_x = 0
-    #offboard_landing_controller.desired_y = 0
 
     rclpy.spin(offboard_landing_controller)
     offboard_landing_controller.destroy_node()
