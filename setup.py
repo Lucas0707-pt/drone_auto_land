@@ -25,7 +25,7 @@ setup(
         'console_scripts': [
             'processes = drone_auto_land.processes:main',
             'uav_camera_sim = drone_auto_land.uav_camera_sim:main',
-            'offset_calculator = drone_auto_land.offset_calculator:main',
+            'frame_converter = drone_auto_land.frame_converter:main',
             'control_node = drone_auto_land.control_node:main'
         ],
     },

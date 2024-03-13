@@ -10,12 +10,7 @@ def generate_launch_description():
         ),
         Node(
             package='drone_auto_land',
-            executable='offset_calculator',
-            name='offset_calculator',
+            executable='frame_converter',
+            name='frame_converter',
         ),
-        Node(
-            package='drone_auto_land',
-            executable='control_node',
-            name='control_node',
-        )
-    ])
+        ])

@@ -16,11 +16,11 @@ class MarkerDetector(Node):
             self.image_callback,
             10)
         self.aruco_image_pub = self.create_publisher(Image, 'aruco_image', 10)
-        #create a publisher for the marker position named: aruco_pose_local
-        self.aruco_pose_local_pub = self.create_publisher(PoseStamped, 'aruco_pose_local', 10)
+
+        self.aruco_pose_camera_pub = self.create_publisher(PoseStamped, 'aruco_pose_camera', 10)
         self.bridge = CvBridge()
         self.font = cv.FONT_HERSHEY_PLAIN
-        self.marker_size = 20
+        self.marker_size = 0.2
 
             
         # Add your camera matrix and distortion coefficients here
@@ -39,13 +39,13 @@ class MarkerDetector(Node):
         pose.pose.position.x = x
         pose.pose.position.y = y
         pose.pose.position.z = z
-        self.aruco_pose_local_pub.publish(pose)
+        self.aruco_pose_camera_pub.publish(pose)
 
     def image_callback(self, msg):
         # Convert the ROS Image message to a CV Image
         cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
         # Resize
-        cv_image = cv.resize(cv_image, (640, 480))
+        #cv_image = cv.resize(cv_image, (640, 480))
 
         # Undistort the image
         #cv_image = cv.undistort(cv_image, self.camera_matrix, self.distortion_coeffs)
