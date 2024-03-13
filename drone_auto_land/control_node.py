@@ -109,7 +109,7 @@ class OffboardLandingController(Node):
         # self.publish_vehicle_command(VehicleCommand.VEHICLE_CMD_NAV_LAND, param7=float(current_altitude))
         # self.get_logger().info('Land command sent')
 
-        self.goto_setpoint(self.current_x, self.current_y, 0.5)
+        self.goto_setpoint(self.current_x, self.current_y, 0)
 
         if(abs(self.current_z) < self.error_land):
             self.disarm()
@@ -163,8 +163,13 @@ class OffboardLandingController(Node):
 
     def update_desired_position(self):
         # Use /offset_correction
-        self.desired_x = self.current_x + self.offset_x
-        self.desired_y = self.current_y + self.offset_y
+        if(self.offset_x is not None and self.offset_y is not None):
+            self.desired_x = self.current_x + self.offset_x
+            self.desired_y = self.current_y + self.offset_y
+        else:
+            self.desired_x = self.current_x
+            self.desired_y = self.current_y
+            self.get_logger().info("Offset was None")
 
     def correct_xy_position(self):
         if self.current_x is None or self.current_y is None:
