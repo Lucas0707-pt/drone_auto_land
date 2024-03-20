@@ -36,7 +36,7 @@ class OffboardLandingController(Node):
         self.vehicle_status_subscriber = self.create_subscription(
             VehicleStatus, '/fmu/out/vehicle_status', self.vehicle_status_callback, qos_profile)
         self.aruco_pose_local_subscriber = self.create_subscription(
-            PoseStamped, '/aruco_pose_local', self.aruco_pose_local_callback, 10)
+            PoseStamped, 'aruco_pose_local', self.aruco_pose_local_callback, 10)
 
         # Initialize variables
         self.offboard_setpoint_counter = 0

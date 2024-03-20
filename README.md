@@ -56,11 +56,18 @@ ros2 launch drone_auto_land processes.launch.py headless:=1
 ```
 
 
-6. Start the camera feed and marker detection:
+6. Start the camera feed and marker detection witout video recording:
     
 ```bash
-ros2 launch drone_auto_land drone_auto_land.launch.py
+ros2 launch drone_auto_land drone_auto_land.launch.py record:=0
 ```
+
+6. 1) Start the camera feed and marker detection with video recording:
+
+```bash
+ros2 launch drone_auto_land drone_auto_land.launch.py record:=1
+```
+
 
 7. Press Ctrl+C on the terminal running the camera to stop it, the video as output.avi will be saved in the same directory.
 
