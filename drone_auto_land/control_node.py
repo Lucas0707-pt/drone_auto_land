@@ -105,14 +105,14 @@ class OffboardLandingController(Node):
 
     def land(self):
         """Command the vehicle to land at its current altitude."""
-        # current_altitude = self.current_z if self.current_z is not None else 0.0
-        # self.publish_vehicle_command(VehicleCommand.VEHICLE_CMD_NAV_LAND, param7=float(current_altitude))
-        # self.get_logger().info('Land command sent')
+        current_altitude = self.current_z if self.current_z is not None else 0.0
+        self.publish_vehicle_command(VehicleCommand.VEHICLE_CMD_NAV_LAND, param7=float(current_altitude))
+        self.get_logger().info('Land command sent')
 
-        self.goto_setpoint(self.current_x, self.current_y, 0)
+        #self.goto_setpoint(self.current_x, self.current_y, 0)
 
-        if(abs(self.current_z) < self.error_land):
-            self.disarm()
+        #if(abs(self.current_z) < self.error_land):
+        #    self.disarm()
             #exit(0)
 
 
@@ -191,7 +191,6 @@ class OffboardLandingController(Node):
 
             self.setpoint_published = True
 
-        #self.trajectory_setpoint_publisher.publish(self.trajectory_setpoint_correction)
         self.goto_setpoint(self.trajectory_setpoint_correction.position[0], self.trajectory_setpoint_correction.position[1], self.trajectory_setpoint_correction.position[2])
 
         if abs(error_x) < self.error_threshold_xy and abs(error_y) < self.error_threshold_xy:
@@ -224,7 +223,6 @@ class OffboardLandingController(Node):
 
             self.setpoint_published = True
         
-        #self.trajectory_setpoint_publisher.publish(self.trajectory_setpoint)
         self.goto_setpoint(self.trajectory_setpoint.position[0], self.trajectory_setpoint.position[1], self.trajectory_setpoint.position[2])
 
         error_z = self.current_z - self.goal_z
@@ -248,7 +246,6 @@ def main(args=None) -> None:
     print('Starting offboard landing controller node...')
     rclpy.init(args=args)
     offboard_landing_controller = OffboardLandingController()
-
     rclpy.spin(offboard_landing_controller)
     offboard_landing_controller.destroy_node()
     rclpy.shutdown()
