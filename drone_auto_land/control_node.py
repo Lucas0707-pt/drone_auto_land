@@ -72,8 +72,8 @@ class OffboardLandingController(Node):
     def aruco_pose_local_callback(self, aruco_pose_local):
         """Callback function for vehicle_offset topic subscriber."""
         self.aruco_pose_local = aruco_pose_local
-        self.offset_x = aruco_pose_local.pose.position[0]
-        self.offset_y = aruco_pose_local.pose.position[1]
+        self.offset_x = aruco_pose_local.pose.position.x
+        self.offset_y = aruco_pose_local.pose.position.y
         
     def vehicle_odometry_callback(self, vehicle_odometry):
         """Callback function for vehicle_odometry topic subscriber."""
@@ -167,9 +167,9 @@ class OffboardLandingController(Node):
             self.desired_x = self.offset_x
             self.desired_y = self.offset_y
         #else:
-         #   self.desired_x = self.current_x
-         #   self.desired_y = self.current_y
-         #   self.get_logger().info("Offset was None")
+        #    self.desired_x = self.current_x
+        #   self.desired_y = self.current_y
+        #    self.get_logger().info("Offset was None")
 
     def correct_xy_position(self):
         if self.current_x is None or self.current_y is None:
