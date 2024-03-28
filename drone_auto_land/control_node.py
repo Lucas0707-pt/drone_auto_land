@@ -2,7 +2,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
 from geometry_msgs.msg import PoseStamped
-from px4_msgs.msg import OffboardControlMode, GotoSetpoint, TrajectorySetpoint, VehicleCommand, VehicleOdometry, VehicleStatus
+from px4_msgs.msg import OffboardControlMode, GotoSetpoint, TrajectorySetpoint, VehicleCommand, VehicleOdometry, VehicleStatus, VehicleGlobalPosition
 import math
 import numpy as np
 
@@ -11,7 +11,7 @@ class OffboardLandingController(Node):
 
     def __init__(self) -> None:
         super().__init__('offboard_landing_controller')
-
+        
         # Configure QoS profile for publishing and subscribing
         qos_profile = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
@@ -31,15 +31,20 @@ class OffboardLandingController(Node):
             VehicleCommand, '/fmu/in/vehicle_command', qos_profile)
 
         # Create subscribers
+        self.vehicle_global_position_subscriber = self.create_subscription(
+            VehicleGlobalPosition, '/fmu/out/vehicle_global_position', self.vehicle_global_position_callback, qos_profile)
         self.vehicle_odometry_subscriber = self.create_subscription(
             VehicleOdometry, '/fmu/out/vehicle_odometry', self.vehicle_odometry_callback, qos_profile)
         self.vehicle_status_subscriber = self.create_subscription(
             VehicleStatus, '/fmu/out/vehicle_status', self.vehicle_status_callback, qos_profile)
         self.aruco_pose_local_subscriber = self.create_subscription(
-            PoseStamped, 'aruco_pose_local', self.aruco_pose_local_callback, 10)
+            PoseStamped, '/aruco_pose_local', self.aruco_pose_local_callback, 10)
+        
+        
 
         # Initialize variables
         self.offboard_setpoint_counter = 0
+        self.vehicle_global_position = VehicleGlobalPosition()
         self.vehicle_odometry = VehicleOdometry()
         self.vehicle_status = VehicleStatus()
         self.aruco_pose_local = PoseStamped()
@@ -51,7 +56,7 @@ class OffboardLandingController(Node):
         self.error_threshold_z = 0.1  # Threshold for z error
         self.error_land = 0.1 # Threshold for landing error
         self.descent_height = 0.2  # Height to descend in z
-        self.land_dist_th = -0.3 # Height to land()
+        self.land_dist_th = -0.5 # Height to land()
         self.goal_z = 0.0
         self.current_x = None
         self.current_y = None
@@ -59,9 +64,11 @@ class OffboardLandingController(Node):
         self.offset_x = None
         self.offset_y = None
         self.state = "Correction" # Correction / Descent / Landing
+        self.vehicle_land_detected = None
 
         # Flag to track if setpoint has been published
         self.setpoint_published = False
+        self.land_command_sent = False
 
         self.trajectory_setpoint_correction = None
         self.trajectory_setpoint = None
@@ -81,6 +88,12 @@ class OffboardLandingController(Node):
         self.current_x = vehicle_odometry.position[0]
         self.current_y = vehicle_odometry.position[1]
         self.current_z = vehicle_odometry.position[2]
+
+    def vehicle_global_position_callback(self, vehicle_global_position):
+        """Callback function for vehicle_global_position topic subscriber."""
+        self.vehicle_global_position = vehicle_global_position
+        #self.current_z = -vehicle_global_position.alt
+        #print("Current Z: ", self.current_z)
 
     def vehicle_status_callback(self, vehicle_status):
         """Callback function for vehicle_status topic subscriber."""
@@ -105,15 +118,19 @@ class OffboardLandingController(Node):
 
     def land(self):
         """Command the vehicle to land at its current altitude."""
-        current_altitude = self.current_z if self.current_z is not None else 0.0
-        self.publish_vehicle_command(VehicleCommand.VEHICLE_CMD_NAV_LAND, param7=float(current_altitude))
-        self.get_logger().info('Land command sent')
 
-        #self.goto_setpoint(self.current_x, self.current_y, 0)
+        if self.current_z is not None: 
+            print("Landing at altitude: ", self.current_z)
+            self.publish_vehicle_command(VehicleCommand.VEHICLE_CMD_NAV_LAND, param7=float(self.current_z))
+            #self.publish_vehicle_command(VehicleCommand.VEHICLE_CMD_DO_FLIGHTTERMINATION, param1=1.0, param2=0.0)
+            self.get_logger().info('Land command sent')
+            self.land_command_sent = True
 
-        #if(abs(self.current_z) < self.error_land):
-        #    self.disarm()
-            #exit(0)
+            # self.goto_setpoint(self.current_x, self.current_y, 0)
+            # if(abs(self.current_z) < 0.3):
+                
+            #     self.disarm()
+            #     exit(0)
 
 
     def publish_vehicle_command(self, command, **params) -> None:
@@ -144,6 +161,7 @@ class OffboardLandingController(Node):
 
         # Assign the array to msg.position
         msg.position = position_array
+        msg.flag_control_heading = True
         msg.heading = 1.57079  # (90 degree)
         msg.timestamp = int(self.get_clock().now().nanoseconds / 1000)
         self.goto_setpoint_publisher.publish(msg)
@@ -158,7 +176,7 @@ class OffboardLandingController(Node):
             self.correct_xy_position()
         elif self.state == "Descent":
             self.descend()
-        elif self.state == "Landing":
+        elif self.state == "Landing" and not self.land_command_sent:
             self.land()
 
     def update_desired_position(self):
@@ -166,10 +184,6 @@ class OffboardLandingController(Node):
         if(self.offset_x is not None and self.offset_y is not None):
             self.desired_x = self.offset_x
             self.desired_y = self.offset_y
-        #else:
-        #    self.desired_x = self.current_x
-        #   self.desired_y = self.current_y
-        #    self.get_logger().info("Offset was None")
 
     def correct_xy_position(self):
         if self.current_x is None or self.current_y is None:
@@ -216,11 +230,12 @@ class OffboardLandingController(Node):
 
             self.goal_z = self.current_z + self.descent_height
 
+            self.get_logger().info("Goal Z: %.2f" % self.goal_z)
+
             self.trajectory_setpoint.position[0] = self.desired_x
             self.trajectory_setpoint.position[1] = self.desired_y
             self.trajectory_setpoint.position[2] = self.goal_z
-            
-
+             
             self.setpoint_published = True
         
         self.goto_setpoint(self.trajectory_setpoint.position[0], self.trajectory_setpoint.position[1], self.trajectory_setpoint.position[2])
@@ -229,9 +244,6 @@ class OffboardLandingController(Node):
 
         if(self.current_z > self.land_dist_th):
             self.state = "Landing"
-            #self.land()
-            #self.disarm()
-            #exit(0)
 
         if abs(error_z) < self.error_threshold_z:
             # Print error information
