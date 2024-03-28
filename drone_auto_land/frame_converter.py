@@ -7,7 +7,7 @@ import math
 
 class FrameConverter(Node):
     def __init__(self):
-        super().__init__('offset_calculator')
+        super().__init__('frame_converter')
 
         self.camera_offset = 0.12
         # Configure QoS profile for publishing and subscribing
@@ -87,9 +87,9 @@ class FrameConverter(Node):
         
 def main(args=None):
     rclpy.init(args=args)
-    offset_calculator = FrameConverter()
-    rclpy.spin(offset_calculator)
-    offset_calculator.destroy_node()
+    frame_converter = FrameConverter()
+    rclpy.spin(frame_converter)
+    frame_converter.destroy_node()
     rclpy.shutdown()
 
 if __name__ == "__main__":
