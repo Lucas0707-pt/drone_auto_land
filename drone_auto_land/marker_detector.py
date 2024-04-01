@@ -4,9 +4,8 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 import cv2 as cv
 import numpy as np
-import threading
 from geometry_msgs.msg import PoseStamped
-import time
+import datetime
 
 class MarkerDetector(Node):
     def __init__(self):
@@ -30,10 +29,9 @@ class MarkerDetector(Node):
         if self.record:
             # Define the codec and create VideoWriter object
             fourcc = cv.VideoWriter_fourcc(*'XVID')
-
-            curr_time = time.strftime("%d-%m-%Y_%H-%M-%S")
-            filename = 'src/drone_auto_land/drone_auto_land/videos/' + curr_time
-            self.out = cv.VideoWriter(filename + '.avi', fourcc, 20.0, (640, 480))
+            now = datetime.datetime.now()
+            filename = f'src/drone_auto_land/videos/{now.year}_{now.month}_{now.day}_{now.hour}_{now.minute}_{now.second}.avi'
+            self.out = cv.VideoWriter(filename, fourcc, 20.0, (640, 480))
 
     def publish_aruco_pose(self, x, y, z):
         pose = PoseStamped()
