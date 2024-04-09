@@ -6,7 +6,11 @@ This project is designed to enable a drone to autonomously land on a marker usin
 
 1. `processes.py`: This script runs the necessary commands for the project in separate terminals. These commands include starting the MicroXRCEAgent, running the image bridge, and starting the PX4 SITL simulation.
 
-2. `uav_camera_sim.py`: This script is a ROS2 node that subscribes to the camera feed, performs marker detection, and records the video output.
+2. `marker_detection.py`: This script uses OpenCV to detect and track markers in real-time. It subscribes to the camera feed and publishes the detected marker's position in the camera frame.
+
+3. `frame_converter.py`: This script converts the camera feed from the camera frame to the local frame. It subscribes to the aruco marker's position in the camera frame and publishes the marker's position in the local frame.
+
+4. `controller.py`: This script calculates the drone's desired position based on the marker's position in the local frame. It subscribes to the marker's position in the local frame and publishes the desired position for the drone.
 
 ## How to Run
 
@@ -46,17 +50,17 @@ source install/local_setup.bash
 5. Run processes:
 
 ```bash
-ros2 launch drone_auto_land processes.launch.py headless:=0
+ros2 launch drone_auto_land processes.launch.py headless:=0 simulation:=1
 ```
 
 5. 1) Run processes without Gazebo GUI:
 
 ```bash
-ros2 launch drone_auto_land processes.launch.py headless:=1
+ros2 launch drone_auto_land processes.launch.py headless:=1 simulation:=1
 ```
 
 
-6. Start the camera feed and marker detection witout video recording:
+6. Start the camera feed and marker detection without video recording:
     
 ```bash
 ros2 launch drone_auto_land drone_auto_land.launch.py record:=0
@@ -85,7 +89,7 @@ ros2 launch drone_auto_land drone_auto_land.launch.py record:=1
 
 ## Note
 
-You need to add your camera matrix and distortion coefficients in the `uav_camera_sim.py` file.
+You need to add your camera matrix and distortion coefficients in the 'camera_parameters' folder.
 
 
 

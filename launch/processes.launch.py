@@ -8,13 +8,18 @@ def generate_launch_description():
     declare_headless_cmd = DeclareLaunchArgument(
         'headless', default_value='0',
         description='Run in headless mode')
+    
+    declare_simulation_cmd = DeclareLaunchArgument( 
+        'simulation', default_value='1',
+        description='Run in simulation mode')
 
     processes_node = Node(
         package='drone_auto_land',
         executable='processes',
         name='processes',
         output='screen',
-        parameters=[{'headless': LaunchConfiguration('headless')}]
+        parameters=[{'headless': LaunchConfiguration('headless')},
+                    {'simulation': LaunchConfiguration('simulation')}]
     )
 
     return LaunchDescription([

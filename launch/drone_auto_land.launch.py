@@ -7,7 +7,7 @@ def generate_launch_description():
     declare_record_cmd = DeclareLaunchArgument(
         'record', default_value='0',
         description='Record video')
-
+    
     marker_detector_node = Node(
         package='drone_auto_land',
         executable='marker_detector',
