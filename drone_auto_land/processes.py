@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import subprocess
 import time
 import rclpy
@@ -16,32 +14,31 @@ class ProcessesNode(Node):
 
     def main(self):
         # Commands to run in separate terminals
-        micro_XRCE_agent_sim = "MicroXRCEAgent udp4 -p 8888"
-        camera_bridge_sim = "ros2 run ros_gz_image image_bridge /camera"
-        px4_sitl_sim = "cd ../PX4-Autopilot && "
-        if self.headless:
-            px4_sitl_sim += "HEADLESS=1 "
-        px4_sitl_sim += "PX4_GZ_WORLD=aruco make px4_sitl gz_x500_depth"
+        micro_XRCE_agent_sim = ["MicroXRCEAgent", "udp4", "-p", "8888"]
+        camera_bridge_sim = ["ros2", "run", "ros_gz_image", "image_bridge", "/camera"]
+        px4_sitl_sim = ["gnome-terminal", "--tab", "--","bash", "-c", "cd ../PX4-Autopilot && " + ("HEADLESS=1 " if self.headless else "") + "PX4_GZ_WORLD=aruco make px4_sitl gz_x500_depth", "; exec bash"]
 
-        micro_XRCE_agent_drone = "sudo MicroXRCEAgent serial --dev /dev/serial0 -b 921600"
-        camera_bridge_drone = "ros2 run v4l2_camera v4l2_camera_node"
+        micro_XRCE_agent_drone = ["sudo", "MicroXRCEAgent", "serial", "--dev", "/dev/serial0", "-b", "921600"]
+        camera_bridge_drone = ["ros2", "run", "v4l2_camera", "v4l2_camera_node"]
 
         # Run the commands in separate terminals
         if self.simulation:
-            subprocess.run(["gnome-terminal", "--tab", "--", "bash", "-c", micro_XRCE_agent_sim + "; exec bash"])
+            subprocess.Popen(micro_XRCE_agent_sim)
             time.sleep(1)
-            subprocess.run(["gnome-terminal", "--tab", "--", "bash", "-c", camera_bridge_sim + "; exec bash"])
+            subprocess.Popen(camera_bridge_sim)
             time.sleep(1)
-            subprocess.run(["gnome-terminal", "--tab", "--", "bash", "-c", px4_sitl_sim + "; exec bash"])
+            subprocess.run(px4_sitl_sim)
         else:
-            subprocess.run(["gnome-terminal", "--tab", "--", "bash", "-c", micro_XRCE_agent_drone + "; exec bash"])
+            subprocess.Popen(micro_XRCE_agent_drone)
             time.sleep(1)
-            subprocess.run(["gnome-terminal", "--tab", "--", "bash", "-c", camera_bridge_drone + "; exec bash"])
+            subprocess.Popen(camera_bridge_drone)
         time.sleep(1)
-        
+
+
 def main(args=None):
     rclpy.init(args=args)
     processes_node = ProcessesNode()
+    processes_node.main()
     rclpy.spin(processes_node)
     processes_node.destroy_node()
     rclpy.shutdown()
