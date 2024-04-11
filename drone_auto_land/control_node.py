@@ -172,7 +172,7 @@ class OffboardLandingController(Node):
         self.publish_offboard_control_heartbeat_signal()
         self.update_desired_position()
         
-        if self.state == "Correction":
+        if self.state == "Correction" and self.desired_x != 0.0 and self.desired_x != 0.0:
             self.correct_xy_position()
         elif self.state == "Descent":
             self.descend()
