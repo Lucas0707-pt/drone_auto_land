@@ -24,5 +24,6 @@ def generate_launch_description():
 
     return LaunchDescription([
         declare_headless_cmd,
+        declare_simulation_cmd,
         processes_node
     ])
