@@ -14,7 +14,7 @@ class MarkerDetector(Node):
         self.record = bool(self.get_parameter('record').get_parameter_value().integer_value)
 
         #create publishers and subscribers
-        self.camera_image_sub = self.create_subscription(Image, 'image_raw', self.image_callback, 10)
+        self.camera_image_sub = self.create_subscription(Image, 'camera', self.image_callback, 10)
         self.aruco_image_pub = self.create_publisher(Image, 'aruco_image', 10)
         self.aruco_pose_camera_pub = self.create_publisher(PoseStamped, 'aruco_pose_camera', 10)
 

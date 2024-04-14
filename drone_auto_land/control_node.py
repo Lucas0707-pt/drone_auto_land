@@ -2,8 +2,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
 from geometry_msgs.msg import PoseStamped
-from px4_msgs.msg import OffboardControlMode, GotoSetpoint, TrajectorySetpoint, VehicleCommand, VehicleOdometry, VehicleStatus, VehicleGlobalPosition
-import math
+from px4_msgs.msg import OffboardControlMode, TrajectorySetpoint, VehicleCommand, VehicleOdometry, VehicleStatus
 import numpy as np
 
 class OffboardLandingController(Node):
@@ -25,63 +24,51 @@ class OffboardLandingController(Node):
             OffboardControlMode, '/fmu/in/offboard_control_mode', qos_profile)
         self.trajectory_setpoint_publisher = self.create_publisher(
             TrajectorySetpoint, '/fmu/in/trajectory_setpoint', qos_profile)
-        self.goto_setpoint_publisher = self.create_publisher( 
-            GotoSetpoint, '/fmu/in/goto_setpoint', qos_profile)
         self.vehicle_command_publisher = self.create_publisher(
             VehicleCommand, '/fmu/in/vehicle_command', qos_profile)
 
         # Create subscribers
-        self.vehicle_global_position_subscriber = self.create_subscription(
-            VehicleGlobalPosition, '/fmu/out/vehicle_global_position', self.vehicle_global_position_callback, qos_profile)
         self.vehicle_odometry_subscriber = self.create_subscription(
             VehicleOdometry, '/fmu/out/vehicle_odometry', self.vehicle_odometry_callback, qos_profile)
-        self.vehicle_status_subscriber = self.create_subscription(
-            VehicleStatus, '/fmu/out/vehicle_status', self.vehicle_status_callback, qos_profile)
+        
         self.aruco_pose_local_subscriber = self.create_subscription(
             PoseStamped, '/aruco_pose_local', self.aruco_pose_local_callback, 10)
         
+        self.status_sub = self.create_subscription(
+            VehicleStatus, '/fmu/out/vehicle_status', self.vehicle_status_callback, qos_profile)
         
-
         # Initialize variables
-        self.offboard_setpoint_counter = 0
-        self.vehicle_global_position = VehicleGlobalPosition()
+        self.land_command_sent = False
         self.vehicle_odometry = VehicleOdometry()
-        self.vehicle_status = VehicleStatus()
-        self.aruco_pose_local = PoseStamped()
-
-        # Parameters for landing controller
         self.desired_x = 0.0
         self.desired_y = 0.0
-        self.error_threshold_xy = 0.1  # Threshold for x and y error
-        self.error_threshold_z = 0.1  # Threshold for z error
-        self.error_land = 0.1 # Threshold for landing error
+        self.current_x = 0.0
+        self.current_y = 0.0
+        self.current_z = 0.0
+        self.desired_z = 0.0
         self.descent_height = 0.2  # Height to descend in z
-        self.land_dist_th = -0.5 # Height to land()
+        self.land_dist_th = 0.2 # Height to land()
         self.goal_z = 0.0
-        self.current_x = None
-        self.current_y = None
+        self.error_threshold_z = 0.1  # Threshold for z error
         self.current_z = None
-        self.offset_x = None
-        self.offset_y = None
         self.state = "Correction" # Correction / Descent / Landing
-        self.vehicle_land_detected = None
+
+        self.nav_state = VehicleStatus.NAVIGATION_STATE_MAX
+        self.arming_state = VehicleStatus.ARMING_STATE_DISARMED
 
         # Flag to track if setpoint has been published
         self.setpoint_published = False
-        self.land_command_sent = False
-
-        self.trajectory_setpoint_correction = None
-        self.trajectory_setpoint = None
 
         # Create a timer to publish control commands
-        self.timer = self.create_timer(0.1, self.timer_callback)
+        self.timer = self.create_timer(0.02, self.timer_callback)
 
-    def aruco_pose_local_callback(self, aruco_pose_local):
-        """Callback function for vehicle_offset topic subscriber."""
-        self.aruco_pose_local = aruco_pose_local
-        self.offset_x = aruco_pose_local.pose.position.x
-        self.offset_y = aruco_pose_local.pose.position.y
-        
+    def vehicle_status_callback(self, msg):
+        # TODO: handle NED->ENU transformation
+        #print("NAV_STATUS: ", msg.nav_state)
+        #print("  - offboard status: ", VehicleStatus.NAVIGATION_STATE_OFFBOARD)
+        self.nav_state = msg.nav_state
+        self.arming_state = msg.arming_state
+
     def vehicle_odometry_callback(self, vehicle_odometry):
         """Callback function for vehicle_odometry topic subscriber."""
         self.vehicle_odometry = vehicle_odometry
@@ -89,15 +76,12 @@ class OffboardLandingController(Node):
         self.current_y = vehicle_odometry.position[1]
         self.current_z = vehicle_odometry.position[2]
 
-    def vehicle_global_position_callback(self, vehicle_global_position):
-        """Callback function for vehicle_global_position topic subscriber."""
-        self.vehicle_global_position = vehicle_global_position
-        #self.current_z = -vehicle_global_position.alt
-        #print("Current Z: ", self.current_z)
-
-    def vehicle_status_callback(self, vehicle_status):
-        """Callback function for vehicle_status topic subscriber."""
-        self.vehicle_status = vehicle_status
+    def aruco_pose_local_callback(self, aruco_pose_local):
+        """Callback function for vehicle_offset topic subscriber."""
+        self.aruco_pose_local = aruco_pose_local
+        self.desired_x = aruco_pose_local.pose.position.x
+        self.desired_y = aruco_pose_local.pose.position.y
+        self.desired_z = aruco_pose_local.pose.position.z
 
     def publish_offboard_control_heartbeat_signal(self):
         """Publish the offboard control mode."""
@@ -120,7 +104,7 @@ class OffboardLandingController(Node):
         """Command the vehicle to land at its current altitude."""
 
         if self.current_z is not None: 
-            print("Landing at altitude: ", self.current_z)
+            print("Landing at altitude: ", abs(self.current_z - self.desired_z))
             self.publish_vehicle_command(VehicleCommand.VEHICLE_CMD_NAV_LAND, param7=float(self.current_z))
             #self.publish_vehicle_command(VehicleCommand.VEHICLE_CMD_DO_FLIGHTTERMINATION, param1=1.0, param2=0.0)
             self.get_logger().info('Land command sent')
@@ -131,7 +115,6 @@ class OffboardLandingController(Node):
                 
             #     self.disarm()
             #     exit(0)
-
 
     def publish_vehicle_command(self, command, **params) -> None:
         """Publish a vehicle command."""
@@ -152,25 +135,9 @@ class OffboardLandingController(Node):
         msg.timestamp = int(self.get_clock().now().nanoseconds / 1000)
         self.vehicle_command_publisher.publish(msg)
 
-    def goto_setpoint(self, x: float, y: float, z: float):
-        """Publish the trajectory setpoint."""
-        msg = GotoSetpoint()
-
-        # Create a NumPy array with x, y, z values
-        position_array = np.array([x, y, z], dtype=np.float32)
-
-        # Assign the array to msg.position
-        msg.position = position_array
-        msg.flag_control_heading = True
-        msg.heading = 1.57079  # (90 degree)
-        msg.timestamp = int(self.get_clock().now().nanoseconds / 1000)
-        self.goto_setpoint_publisher.publish(msg)
-        #self.get_logger().info(f"Publishing position setpoints {[x, y, z]}")
-
     def timer_callback(self) -> None:
         """Callback function for the timer."""
         self.publish_offboard_control_heartbeat_signal()
-        self.update_desired_position()
         
         if self.state == "Correction" and self.desired_x != 0.0 and self.desired_x != 0.0:
             self.correct_xy_position()
@@ -179,70 +146,55 @@ class OffboardLandingController(Node):
         elif self.state == "Landing" and not self.land_command_sent:
             self.land()
 
-    def update_desired_position(self):
-        # Use /offset_correction
-        if(self.offset_x is not None and self.offset_y is not None):
-            self.desired_x = self.offset_x
-            self.desired_y = self.offset_y
-
     def correct_xy_position(self):
-        if self.current_x is None or self.current_y is None:
+        if self.current_x is None or self.current_y is None or self.desired_x is None or self.desired_y is None:
             return
 
-        error_x = self.desired_x - self.current_x
-        error_y = self.desired_y - self.current_y
-        
-        if self.trajectory_setpoint_correction is None:
-            self.trajectory_setpoint_correction = TrajectorySetpoint()
+        if (self.nav_state == VehicleStatus.NAVIGATION_STATE_OFFBOARD and self.arming_state == VehicleStatus.ARMING_STATE_ARMED):
+            if not self.setpoint_published:
+                self.get_logger().info("Correcting to x=%.2f, y=%.2f" % (self.desired_x, self.desired_y))
+                self.get_logger().info("Current position x=%.2f, y=%.2f" % (self.current_x, self.current_y))
+                # Generate linear trajectory for correction
+                waypoints = self.generate_linear_trajectory(self.current_x, self.current_y, self.desired_x, self.desired_y, self.current_z, self.current_z, num_points=50)
+                
+                # Publish trajectory setpoints
+                for waypoint in waypoints:
+                    #self.get_logger().info("Current waypoint x=%.2f, y=%.2f, z=%.2f" % (waypoint[0], waypoint[1], waypoint[2]))
+                    self.publish_trajectory_setpoint(waypoint[0], waypoint[1], waypoint[2])
+                    
+                self.setpoint_published = True
 
-        if not self.setpoint_published:
-            # Print correction information
-            self.get_logger().info("Correcting to x=%.2f, y=%.2f" % (self.desired_x, self.desired_y))
+            # Condition to switch to descent state
+            if self.distance_to_desired_position(self.current_x, self.current_y, self.desired_x, self.desired_y) < 0.1:
+                self.get_logger().info("Error in x, y=%.2f" % (self.distance_to_desired_position(self.current_x, self.current_y, self.desired_x, self.desired_y)))
+                self.state = "Descent"
+                self.setpoint_published = False
 
-            self.trajectory_setpoint_correction.position[0] = self.desired_x
-            self.trajectory_setpoint_correction.position[1] = self.desired_y
-            self.trajectory_setpoint_correction.position[2] = self.current_z
-
-            self.setpoint_published = True
-
-        self.goto_setpoint(self.trajectory_setpoint_correction.position[0], self.trajectory_setpoint_correction.position[1], self.trajectory_setpoint_correction.position[2])
-
-        if abs(error_x) < self.error_threshold_xy and abs(error_y) < self.error_threshold_xy:
-            # Print error information
-            self.get_logger().info("Error in x=%.2f, y=%.2f" % (error_x, error_y))
-            self.state = "Descent"
-            # Reset setpoint_published flag
-            self.setpoint_published = False
+        else:
+            self.get_logger().info("Vehicle not in offboard mode or not armed")
 
     def descend(self):
         if self.current_z is None:
             return
-
-        error_z = self.current_z - self.descent_height
         
-
-        if self.trajectory_setpoint is None:
-            self.trajectory_setpoint = TrajectorySetpoint()
+        # Calculate error in z
+        error_z = self.current_z - self.descent_height
 
         if not self.setpoint_published:
-            # Print descent information
-            self.get_logger().info("Descending height=%.2f meters" % self.descent_height)
-
+            # Generate linear trajectory for descent
+            waypoints = self.generate_linear_trajectory(self.current_x, self.current_y, self.desired_x, self.desired_y, self.current_z, self.current_z + self.descent_height, num_points=10)
+            
             self.goal_z = self.current_z + self.descent_height
-
-            self.get_logger().info("Goal Z: %.2f" % self.goal_z)
-
-            self.trajectory_setpoint.position[0] = self.desired_x
-            self.trajectory_setpoint.position[1] = self.desired_y
-            self.trajectory_setpoint.position[2] = self.goal_z
-             
-            self.setpoint_published = True
+            # Publish trajectory setpoints
+            for waypoint in waypoints:
+                self.publish_trajectory_setpoint(waypoint[0], waypoint[1], waypoint[2])
+                self.setpoint_published = True
         
-        self.goto_setpoint(self.trajectory_setpoint.position[0], self.trajectory_setpoint.position[1], self.trajectory_setpoint.position[2])
-
         error_z = self.current_z - self.goal_z
 
-        if(self.current_z > self.land_dist_th):
+        # Check if descent is complete
+        # Condition to switch to landing state
+        if abs(self.current_z - self.desired_z) < self.land_dist_th:
             self.state = "Landing"
 
         if abs(error_z) < self.error_threshold_z:
@@ -252,7 +204,32 @@ class OffboardLandingController(Node):
             # Reset setpoint_published flag
             self.setpoint_published = False
 
-    
+    def generate_linear_trajectory(self, start_x, start_y, end_x, end_y, start_z, end_z, num_points):
+        """Generate a linear trajectory."""
+        trajectory = []
+        for i in range(num_points):
+            t = i / (num_points - 1)
+            x = start_x + t * (end_x - start_x)
+            y = start_y + t * (end_y - start_y)
+            z = start_z + t * (end_z - start_z)
+            trajectory.append((x, y, z))
+        return trajectory
+
+    def distance_to_desired_position(self, x1, y1, x2, y2):
+        """Calculate the Euclidean distance between two points."""
+        return np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+
+    def publish_trajectory_setpoint(self, x: float, y: float, z: float):
+        """Publish the trajectory setpoint."""
+        msg = TrajectorySetpoint()
+
+        # Create a NumPy array with x, y, z values
+        position_array = np.array([x, y, z], dtype=np.float32)
+
+        # Assign the array to msg.position
+        msg.position = position_array
+        msg.timestamp = int(self.get_clock().now().nanoseconds / 1000)
+        self.trajectory_setpoint_publisher.publish(msg)
 
 def main(args=None) -> None:
     print('Starting offboard landing controller node...')
