@@ -6,7 +6,7 @@ from px4_msgs.msg import OffboardControlMode, TrajectorySetpoint, VehicleCommand
 import numpy as np
 
 class OffboardLandingController(Node):
-    """Node for controlling a vehicle in offboard mode and handling landing."""
+    """Node for landing the drone, using Offboard mode, atop an ArUco marker."""
 
     def __init__(self) -> None:
         super().__init__('offboard_landing_controller')
@@ -22,8 +22,10 @@ class OffboardLandingController(Node):
         # Create publishers
         self.offboard_control_mode_publisher = self.create_publisher(
             OffboardControlMode, '/fmu/in/offboard_control_mode', qos_profile)
+        
         self.trajectory_setpoint_publisher = self.create_publisher(
             TrajectorySetpoint, '/fmu/in/trajectory_setpoint', qos_profile)
+        
         self.vehicle_command_publisher = self.create_publisher(
             VehicleCommand, '/fmu/in/vehicle_command', qos_profile)
 
@@ -53,8 +55,8 @@ class OffboardLandingController(Node):
         self.current_z = None
         self.state = "Correction" # Correction / Descent / Landing
 
+        # Initialize navigation state
         self.nav_state = VehicleStatus.NAVIGATION_STATE_MAX
-        self.arming_state = VehicleStatus.ARMING_STATE_DISARMED
 
         # Flag to track if setpoint has been published
         self.setpoint_published = False
@@ -63,11 +65,7 @@ class OffboardLandingController(Node):
         self.timer = self.create_timer(0.02, self.timer_callback)
 
     def vehicle_status_callback(self, msg):
-        # TODO: handle NED->ENU transformation
-        #print("NAV_STATUS: ", msg.nav_state)
-        #print("  - offboard status: ", VehicleStatus.NAVIGATION_STATE_OFFBOARD)
         self.nav_state = msg.nav_state
-        self.arming_state = msg.arming_state
 
     def vehicle_odometry_callback(self, vehicle_odometry):
         """Callback function for vehicle_odometry topic subscriber."""
@@ -77,7 +75,7 @@ class OffboardLandingController(Node):
         self.current_z = vehicle_odometry.position[2]
 
     def aruco_pose_local_callback(self, aruco_pose_local):
-        """Callback function for vehicle_offset topic subscriber."""
+        """Callback function for aruco_pose_local topic subscriber."""
         self.aruco_pose_local = aruco_pose_local
         self.desired_x = aruco_pose_local.pose.position.x
         self.desired_y = aruco_pose_local.pose.position.y
@@ -94,6 +92,12 @@ class OffboardLandingController(Node):
         msg.timestamp = int(self.get_clock().now().nanoseconds / 1000)
         self.offboard_control_mode_publisher.publish(msg)
 
+    def engage_offboard_mode(self):
+        """Switch to offboard mode."""
+        self.publish_vehicle_command(
+            VehicleCommand.VEHICLE_CMD_DO_SET_MODE, param1=1.0, param2=6.0)
+        self.get_logger().info("Switching to offboard mode")
+
     def disarm(self):
         """Send a disarm command to the vehicle."""
         self.publish_vehicle_command(
@@ -102,19 +106,12 @@ class OffboardLandingController(Node):
 
     def land(self):
         """Command the vehicle to land at its current altitude."""
-
         if self.current_z is not None: 
-            print("Landing at altitude: ", abs(self.current_z - self.desired_z))
-            self.publish_vehicle_command(VehicleCommand.VEHICLE_CMD_NAV_LAND, param7=float(self.current_z))
-            #self.publish_vehicle_command(VehicleCommand.VEHICLE_CMD_DO_FLIGHTTERMINATION, param1=1.0, param2=0.0)
+            self._logger.info('Landing at the altitude of %.2fm' % abs(self.current_z - self.desired_z))
+            self.publish_vehicle_command(VehicleCommand.VEHICLE_CMD_NAV_LAND, param7=float(abs(self.current_z - self.desired_z)))
             self.get_logger().info('Land command sent')
             self.land_command_sent = True
-
-            # self.goto_setpoint(self.current_x, self.current_y, 0)
-            # if(abs(self.current_z) < 0.3):
-                
-            #     self.disarm()
-            #     exit(0)
+            exit(0)
 
     def publish_vehicle_command(self, command, **params) -> None:
         """Publish a vehicle command."""
@@ -137,8 +134,13 @@ class OffboardLandingController(Node):
 
     def timer_callback(self) -> None:
         """Callback function for the timer."""
+        # Publish offboard control heartbeat signal
+        if (self.nav_state != VehicleStatus.NAVIGATION_STATE_OFFBOARD and self.land_command_sent == False):
+            self.engage_offboard_mode()
+            
         self.publish_offboard_control_heartbeat_signal()
         
+        # State machine
         if self.state == "Correction" and self.desired_x != 0.0 and self.desired_x != 0.0:
             self.correct_xy_position()
         elif self.state == "Descent":
@@ -146,34 +148,36 @@ class OffboardLandingController(Node):
         elif self.state == "Landing" and not self.land_command_sent:
             self.land()
 
+    
     def correct_xy_position(self):
+        """Correct the position of the drone in the horizontal plane."""
         if self.current_x is None or self.current_y is None or self.desired_x is None or self.desired_y is None:
             return
 
-        if (self.nav_state == VehicleStatus.NAVIGATION_STATE_OFFBOARD and self.arming_state == VehicleStatus.ARMING_STATE_ARMED):
+        if (self.nav_state == VehicleStatus.NAVIGATION_STATE_OFFBOARD):
             if not self.setpoint_published:
-                self.get_logger().info("Correcting to x=%.2f, y=%.2f" % (self.desired_x, self.desired_y))
-                self.get_logger().info("Current position x=%.2f, y=%.2f" % (self.current_x, self.current_y))
+                self.get_logger().info("Correcting to x=%.2fm, y=%.2fm" % (self.desired_x, self.desired_y))
+                self.get_logger().info("Current position x=%.2fm, y=%.2fm" % (self.current_x, self.current_y))
                 # Generate linear trajectory for correction
-                waypoints = self.generate_linear_trajectory(self.current_x, self.current_y, self.desired_x, self.desired_y, self.current_z, self.current_z, num_points=50)
+                waypoints = self.generate_linear_trajectory(self.current_x, self.current_y, self.desired_x, self.desired_y, self.current_z, self.current_z, num_points=2)
                 
                 # Publish trajectory setpoints
                 for waypoint in waypoints:
-                    #self.get_logger().info("Current waypoint x=%.2f, y=%.2f, z=%.2f" % (waypoint[0], waypoint[1], waypoint[2]))
                     self.publish_trajectory_setpoint(waypoint[0], waypoint[1], waypoint[2])
                     
                 self.setpoint_published = True
 
             # Condition to switch to descent state
             if self.distance_to_desired_position(self.current_x, self.current_y, self.desired_x, self.desired_y) < 0.1:
-                self.get_logger().info("Error in x, y=%.2f" % (self.distance_to_desired_position(self.current_x, self.current_y, self.desired_x, self.desired_y)))
+                self.get_logger().info("Horizontal Error = %.2fm" % (self.distance_to_desired_position(self.current_x, self.current_y, self.desired_x, self.desired_y)))
                 self.state = "Descent"
                 self.setpoint_published = False
 
         else:
-            self.get_logger().info("Vehicle not in offboard mode or not armed")
+            self.get_logger().info("Vehicle not in offboard mode.")
 
     def descend(self):
+        """Descend the predefined height."""
         if self.current_z is None:
             return
         
@@ -192,14 +196,13 @@ class OffboardLandingController(Node):
         
         error_z = self.current_z - self.goal_z
 
-        # Check if descent is complete
         # Condition to switch to landing state
         if abs(self.current_z - self.desired_z) < self.land_dist_th:
             self.state = "Landing"
 
         if abs(error_z) < self.error_threshold_z:
             # Print error information
-            self.get_logger().info("Error in z=%.2f" % error_z)
+            self.get_logger().info("Vertical Error = %.2fm" % abs(error_z))
             self.state = "Correction"
             # Reset setpoint_published flag
             self.setpoint_published = False
@@ -222,8 +225,6 @@ class OffboardLandingController(Node):
     def publish_trajectory_setpoint(self, x: float, y: float, z: float):
         """Publish the trajectory setpoint."""
         msg = TrajectorySetpoint()
-
-        # Create a NumPy array with x, y, z values
         position_array = np.array([x, y, z], dtype=np.float32)
 
         # Assign the array to msg.position
