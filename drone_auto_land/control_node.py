@@ -145,8 +145,8 @@ class OffboardLandingController(Node):
     def timer_callback(self) -> None:
         """Callback function for the timer."""
         # Publish offboard control heartbeat signal
-        if (self.nav_state != VehicleStatus.NAVIGATION_STATE_OFFBOARD and self.land_command_sent == False):
-            self.engage_offboard_mode()
+        #if (self.nav_state != VehicleStatus.NAVIGATION_STATE_OFFBOARD and self.land_command_sent == False):
+        #    self.engage_offboard_mode()
             
         self.publish_offboard_control_heartbeat_signal()
         
@@ -165,7 +165,8 @@ class OffboardLandingController(Node):
             self.get_logger().info("Current x, y, z or desired x, y, z not available.")
             return
 
-        if (self.nav_state == VehicleStatus.NAVIGATION_STATE_OFFBOARD):
+        #if (self.nav_state == VehicleStatus.NAVIGATION_STATE_OFFBOARD):
+        if True:
             if not self.setpoint_published:
                 self.get_logger().info("Current position x=%.2fm, y=%.2fm" % (self.current_x, self.current_y))
                 self.get_logger().info("Correcting to x=%.2fm, y=%.2fm" % (self.desired_x, self.desired_y))
