@@ -250,6 +250,30 @@ class OffboardLandingController(Node):
         msg.position = position_array
         msg.timestamp = int(self.get_clock().now().nanoseconds / 1000)
         self.trajectory_setpoint_publisher.publish(msg)
+    def generate_linear_trajectory(self, start_x, start_y, end_x, end_y, start_z, end_z, num_points):
+        """Generate a linear trajectory."""
+        trajectory = []
+        for i in range(num_points):
+            t = i / (num_points - 1)
+            x = start_x + t * (end_x - start_x)
+            y = start_y + t * (end_y - start_y)
+            z = start_z + t * (end_z - start_z)
+            trajectory.append((x, y, z))
+        return trajectory
+
+    def distance_to_desired_position(self, x1, y1, x2, y2):
+        """Calculate the Euclidean distance between two points."""
+        return np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+
+    def publish_trajectory_setpoint(self, x: float, y: float, z: float):
+        """Publish the trajectory setpoint."""
+        msg = TrajectorySetpoint()
+        position_array = np.array([x, y, z], dtype=np.float32)
+
+        # Assign the array to msg.position
+        msg.position = position_array
+        msg.timestamp = int(self.get_clock().now().nanoseconds / 1000)
+        self.trajectory_setpoint_publisher.publish(msg)
 
 def main(args=None) -> None:
     print('Starting offboard landing controller node...')
