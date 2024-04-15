@@ -195,8 +195,6 @@ class OffboardLandingController(Node):
             return
         
         # Calculate error in z
-        
-        # Calculate error in z
         error_z = self.current_z - self.descent_height
 
         if not self.setpoint_published:
