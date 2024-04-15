@@ -32,5 +32,5 @@ def generate_launch_description():
         declare_record_cmd,
         marker_detector_node,
         frame_converter_node,
-        control_node
+        #control_node
     ])
