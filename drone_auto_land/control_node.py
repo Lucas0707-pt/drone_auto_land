@@ -26,8 +26,10 @@ class OffboardLandingController(Node):
         self.offboard_control_mode_publisher = self.create_publisher(
             OffboardControlMode, '/fmu/in/offboard_control_mode', qos_profile)
         
+        
         self.trajectory_setpoint_publisher = self.create_publisher(
             TrajectorySetpoint, '/fmu/in/trajectory_setpoint', qos_profile)
+        
         
         self.vehicle_command_publisher = self.create_publisher(
             VehicleCommand, '/fmu/in/vehicle_command', qos_profile)
@@ -36,8 +38,12 @@ class OffboardLandingController(Node):
         self.vehicle_odometry_subscriber = self.create_subscription(
             VehicleOdometry, '/fmu/out/vehicle_odometry', self.vehicle_odometry_callback, qos_profile)
         
+        
         self.aruco_pose_local_subscriber = self.create_subscription(
             PoseStamped, '/aruco_pose_local', self.aruco_pose_local_callback, 10)
+        
+        self.status_sub = self.create_subscription(
+            VehicleStatus, '/fmu/out/vehicle_status', self.vehicle_status_callback, qos_profile)
         
         self.status_sub = self.create_subscription(
             VehicleStatus, '/fmu/out/vehicle_status', self.vehicle_status_callback, qos_profile)
@@ -187,6 +193,8 @@ class OffboardLandingController(Node):
         if self.current_z is None or self.descent_height is None or self.desired_z is None:
             self.get_logger().info("Current z, desired z or descent height not available.")
             return
+        
+        # Calculate error in z
         
         # Calculate error in z
         error_z = self.current_z - self.descent_height
