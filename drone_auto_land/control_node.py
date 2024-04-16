@@ -42,6 +42,7 @@ class OffboardLandingController(Node):
         self.status_sub = self.create_subscription(
             VehicleStatus, '/fmu/out/vehicle_status', self.vehicle_status_callback, qos_profile)
         
+        
         # Initialize variables
         self.land_command_sent = False
         self.vehicle_odometry = VehicleOdometry()
@@ -64,6 +65,9 @@ class OffboardLandingController(Node):
 
         # Flag to track if setpoint has been published
         self.setpoint_published = False
+
+        # Flag to track if offboard mode has been started
+        self.offboard_started = False
 
         # Create a timer to publish control commands
         self.timer = self.create_timer(0.02, self.timer_callback)
@@ -139,8 +143,10 @@ class OffboardLandingController(Node):
     def timer_callback(self) -> None:
         """Callback function for the timer."""
         # Publish offboard control heartbeat signal
-        if (self.nav_state != VehicleStatus.NAVIGATION_STATE_OFFBOARD and self.land_command_sent == False):
+        #if (self.nav_state != VehicleStatus.NAVIGATION_STATE_OFFBOARD and self.land_command_sent == False):
+        if self.offboard_started == False:
             self.engage_offboard_mode()
+            self.offboard_started = True
             
         self.publish_offboard_control_heartbeat_signal()
         
@@ -159,7 +165,8 @@ class OffboardLandingController(Node):
             self.get_logger().info("Current x, y, z or desired x, y, z not available.")
             return
 
-        if (self.nav_state == VehicleStatus.NAVIGATION_STATE_OFFBOARD):
+        #if (self.nav_state == VehicleStatus.NAVIGATION_STATE_OFFBOARD):
+        if self.offboard_started == True:
             if not self.setpoint_published:
                 self.get_logger().info("Current position x=%.2fm, y=%.2fm" % (self.current_x, self.current_y))
                 self.get_logger().info("Correcting to x=%.2fm, y=%.2fm" % (self.desired_x, self.desired_y))
@@ -218,6 +225,30 @@ class OffboardLandingController(Node):
             # Reset setpoint_published flag
             self.setpoint_published = False
 
+    def generate_linear_trajectory(self, start_x, start_y, end_x, end_y, start_z, end_z, num_points):
+        """Generate a linear trajectory."""
+        trajectory = []
+        for i in range(num_points):
+            t = i / (num_points - 1)
+            x = start_x + t * (end_x - start_x)
+            y = start_y + t * (end_y - start_y)
+            z = start_z + t * (end_z - start_z)
+            trajectory.append((x, y, z))
+        return trajectory
+
+    def distance_to_desired_position(self, x1, y1, x2, y2):
+        """Calculate the Euclidean distance between two points."""
+        return np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
+
+    def publish_trajectory_setpoint(self, x: float, y: float, z: float):
+        """Publish the trajectory setpoint."""
+        msg = TrajectorySetpoint()
+        position_array = np.array([x, y, z], dtype=np.float32)
+
+        # Assign the array to msg.position
+        msg.position = position_array
+        msg.timestamp = int(self.get_clock().now().nanoseconds / 1000)
+        self.trajectory_setpoint_publisher.publish(msg)
     def generate_linear_trajectory(self, start_x, start_y, end_x, end_y, start_z, end_z, num_points):
         """Generate a linear trajectory."""
         trajectory = []
