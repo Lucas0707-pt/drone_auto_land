@@ -10,7 +10,7 @@ This project is designed to enable a drone to autonomously land on a marker usin
 
 3. `frame_converter.py`: This script converts the camera feed from the camera frame to the local frame. It subscribes to the aruco marker's position in the camera frame and publishes the marker's position in the local frame.
 
-4. `controller.py`: This script calculates the drone's desired position based on the marker's position in the local frame. It subscribes to the marker's position in the local frame and publishes the desired position for the drone.
+4. `controller.py`: This script subscribes to the aruco's local pose and performs the landing procedure: firstly, the horizontal position is corrected, putting the drone atop the aruco and then it descends a predefined height. These steps occur in a loop until the drone is close to the ground, where it lands in the last known aruco pose.
 
 ## How to Run
 
