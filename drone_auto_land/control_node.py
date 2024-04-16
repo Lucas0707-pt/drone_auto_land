@@ -26,10 +26,8 @@ class OffboardLandingController(Node):
         self.offboard_control_mode_publisher = self.create_publisher(
             OffboardControlMode, '/fmu/in/offboard_control_mode', qos_profile)
         
-        
         self.trajectory_setpoint_publisher = self.create_publisher(
             TrajectorySetpoint, '/fmu/in/trajectory_setpoint', qos_profile)
-        
         
         self.vehicle_command_publisher = self.create_publisher(
             VehicleCommand, '/fmu/in/vehicle_command', qos_profile)
@@ -38,15 +36,12 @@ class OffboardLandingController(Node):
         self.vehicle_odometry_subscriber = self.create_subscription(
             VehicleOdometry, '/fmu/out/vehicle_odometry', self.vehicle_odometry_callback, qos_profile)
         
-        
         self.aruco_pose_local_subscriber = self.create_subscription(
             PoseStamped, '/aruco_pose_local', self.aruco_pose_local_callback, 10)
         
         self.status_sub = self.create_subscription(
             VehicleStatus, '/fmu/out/vehicle_status', self.vehicle_status_callback, qos_profile)
         
-        self.status_sub = self.create_subscription(
-            VehicleStatus, '/fmu/out/vehicle_status', self.vehicle_status_callback, qos_profile)
         
         # Initialize variables
         self.land_command_sent = False
@@ -70,6 +65,9 @@ class OffboardLandingController(Node):
 
         # Flag to track if setpoint has been published
         self.setpoint_published = False
+
+        # Flag to track if offboard mode has been started
+        self.offboard_started = False
 
         # Create a timer to publish control commands
         self.timer = self.create_timer(0.02, self.timer_callback)
@@ -146,7 +144,9 @@ class OffboardLandingController(Node):
         """Callback function for the timer."""
         # Publish offboard control heartbeat signal
         #if (self.nav_state != VehicleStatus.NAVIGATION_STATE_OFFBOARD and self.land_command_sent == False):
-        #    self.engage_offboard_mode()
+        if self.offboard_started == False:
+            self.engage_offboard_mode()
+            self.offboard_started = True
             
         self.publish_offboard_control_heartbeat_signal()
         
@@ -166,7 +166,7 @@ class OffboardLandingController(Node):
             return
 
         #if (self.nav_state == VehicleStatus.NAVIGATION_STATE_OFFBOARD):
-        if True:
+        if self.offboard_started == True:
             if not self.setpoint_published:
                 self.get_logger().info("Current position x=%.2fm, y=%.2fm" % (self.current_x, self.current_y))
                 self.get_logger().info("Correcting to x=%.2fm, y=%.2fm" % (self.desired_x, self.desired_y))
