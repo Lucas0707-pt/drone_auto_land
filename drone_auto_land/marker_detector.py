@@ -74,6 +74,9 @@ class MarkerDetector(Node):
             _, tvec = ret[0][0,0,:], ret[1][0,0,:]
             self.publish_aruco_pose(tvec[0], tvec[1], tvec[2])
 
+            #Add text information to the aruco_image
+            aruco_pose_camera_text = f"ArUco Pose Camera: x={tvec[0]:.2f}, y={tvec[1]:.2f}, z={tvec[2]:.2f}"
+            cv.putText(cv_image, aruco_pose_camera_text, (10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
         # Publish the image with the detected markers
         self.aruco_image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, encoding='bgr8'))
