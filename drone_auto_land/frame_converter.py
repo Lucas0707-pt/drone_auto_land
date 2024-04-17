@@ -44,7 +44,7 @@ class FrameConverter(Node):
             'qz': None
         }
 
-        self.tvec_C_D = np.array([0.08, 0, 0.05])
+        self.tvec_C_D = np.array([0.05, 0, 0.04])
         self.rvec_C_D = np.array([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
 
         
@@ -72,7 +72,7 @@ class FrameConverter(Node):
 
     def convert_quat2rot(self):
         return np.array([[1 - 2 * self.vehicle_odometry['qy']**2 - 2 * self.vehicle_odometry['qz']**2, 2 * self.vehicle_odometry['qx'] * self.vehicle_odometry['qy'] - 2 * self.vehicle_odometry['qz'] * self.vehicle_odometry['qw'], 2 * self.vehicle_odometry['qx'] * self.vehicle_odometry['qz'] + 2 * self.vehicle_odometry['qy'] * self.vehicle_odometry['qw']],
-                        [2 * self.vehicle_odometry['qx'] * self.vehicle_odometry['qy'] + 2 * self.vehicle_odometry['qz'] * self.vehicle_odometry['qw'], 1 - 2 * self.vehicle_odometry[ults 'qx']**2 - 2 * self.vehicle_odometry['qz']**2, 2 * self.vehicle_odometry['qy'] * self.vehicle_odometry['qz'] - 2 * self.vehicle_odometry['qx'] * self.vehicle_odometry['qw']],
+                        [2 * self.vehicle_odometry['qx'] * self.vehicle_odometry['qy'] + 2 * self.vehicle_odometry['qz'] * self.vehicle_odometry['qw'], 1 - 2 * self.vehicle_odometry['qx']**2 - 2 * self.vehicle_odometry['qz']**2, 2 * self.vehicle_odometry['qy'] * self.vehicle_odometry['qz'] - 2 * self.vehicle_odometry['qx'] * self.vehicle_odometry['qw']],
                         [2 * self.vehicle_odometry['qx'] * self.vehicle_odometry['qz'] - 2 * self.vehicle_odometry['qy'] * self.vehicle_odometry['qw'], 2 * self.vehicle_odometry['qy'] * self.vehicle_odometry['qz'] + 2 * self.vehicle_odometry['qx'] * self.vehicle_odometry['qw'], 1 - 2 * self.vehicle_odometry['qx']**2 - 2 * self.vehicle_odometry['qy']**2]])
     
     def get_transform_matrix(self, tvec, rvec):
