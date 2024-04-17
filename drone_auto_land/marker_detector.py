@@ -33,7 +33,7 @@ class MarkerDetector(Node):
             fourcc = cv.VideoWriter_fourcc(*'XVID')
             now = datetime.datetime.now()
             filename = f'src/drone_auto_land/videos/{now.year}_{now.month}_{now.day}_{now.hour}_{now.minute}_{now.second}.avi'
-            self.out = cv.VideoWriter(filename, fourcc, 20.0, (640, 480))
+            self.out = cv.VideoWriter(filename, fourcc, 30.0, (640, 480))
 
     # Publish the pose of the detected ArUco marker
     def publish_aruco_pose(self, x, y, z):
