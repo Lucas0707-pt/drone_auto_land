@@ -20,7 +20,11 @@ class MarkerDetector(Node):
 
         self.bridge = CvBridge()
 
-        self.marker_size = 0.2
+        self.marker_id = 29
+        self.embedded_marker_id = 33
+
+        self.marker_size = 0.291
+        self.embedded_marker_size = 0.033
 
         # Load the camera matrix and distortion coefficients
         camera_matrix_file = 'src/drone_auto_land/drone_auto_land/camera_parameters/camera_matrix.txt'
@@ -53,7 +57,7 @@ class MarkerDetector(Node):
         gray = cv.GaussianBlur(gray, (3, 3), 0)
 
         # Perform marker detection
-        aruco_dict = cv.aruco.Dictionary_get(cv.aruco.DICT_6X6_1000)
+        aruco_dict = cv.aruco.Dictionary_get(cv.aruco.DICT_7X7_1000)
         parameters = cv.aruco.DetectorParameters_create()
         corners, ids, _ = cv.aruco.detectMarkers(gray, aruco_dict, parameters=parameters)
 
@@ -70,7 +74,7 @@ class MarkerDetector(Node):
                 cv.circle(cv_image, (cx, cy), 5, (0, 0, 255), -1)
 
             # Estimate pose of each marker and return the values rvec and tvec
-            ret = cv.aruco.estimatePoseSingleMarkers(corners, self.marker_size, self.camera_matrix, self.distortion_coeffs)
+            ret = cv.aruco.estimatePoseSingleMarkers(corners, (self.marker_size if ids[i][0] == self.marker_id else self.embedded_marker_size), self.camera_matrix, self.distortion_coeffs)
             _, tvec = ret[0][0,0,:], ret[1][0,0,:]
             self.publish_aruco_pose(tvec[0], tvec[1], tvec[2])
 
