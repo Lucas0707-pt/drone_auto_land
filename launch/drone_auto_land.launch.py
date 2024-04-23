@@ -8,25 +8,17 @@ def generate_launch_description():
         'record', default_value='0',
         description='Record video')
     
-    camera_bridge_node = Node(
-        package='drone_auto_land',
-        executable='camera_bridge',
-        name='camera_bridge',
-        output='screen'
-    )
-    
     marker_detector_node = Node(
         package='drone_auto_land',
         executable='marker_detector',
         name='marker_detector',
-        output='screen',
-        parameters=[{'record': LaunchConfiguration('record')}]
     )
 
     frame_converter_node = Node(
         package='drone_auto_land',
         executable='frame_converter',
         name='frame_converter',
+        parameters=[{'record': LaunchConfiguration('record')}]
     )
 
     control_node = Node(
@@ -37,9 +29,8 @@ def generate_launch_description():
 
     return LaunchDescription([
         declare_record_cmd,
-        camera_bridge_node,
         declare_record_cmd,
         marker_detector_node,
-        frame_converter_node
+        frame_converter_node,
         #control_node
     ])

@@ -2,12 +2,28 @@ import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
 from px4_msgs.msg import VehicleOdometry
+from sensor_msgs.msg import Image
 from geometry_msgs.msg import PoseStamped
 import numpy as np
+import cv2 as cv
+from cv_bridge import CvBridge
+import datetime
+
+
 
 class FrameConverter(Node):
     def __init__(self):
         super().__init__('frame_converter')
+
+        self.declare_parameter('record', 0)
+        self.record = bool(self.get_parameter('record').get_parameter_value().integer_value)
+
+        if self.record:
+            # Define the codec and create VideoWriter object
+            fourcc = cv.VideoWriter_fourcc(*'XVID')
+            now = datetime.datetime.now()
+            filename = f'src/drone_auto_land/videos/{now.year}_{now.month}_{now.day}_{now.hour}_{now.minute}_{now.second}.avi'
+            self.out = cv.VideoWriter(filename, fourcc, 30.0, (640, 480))
 
         # Configure QoS profile for publishing and subscribing
         qos_profile = QoSProfile(
@@ -17,6 +33,8 @@ class FrameConverter(Node):
             depth=1
         )
 
+        self.bridge = CvBridge()
+
         self.aruco_pose_camera_sub = self.create_subscription(
             PoseStamped, 'aruco_pose_camera', self.aruco_pose_camera_callback, 10)
         
@@ -25,9 +43,19 @@ class FrameConverter(Node):
         
         self.aruco_pose_local_pub = self.create_publisher(
             PoseStamped, 'aruco_pose_local', 10)
+        
+        self.aruco_image_sub = self.create_subscription(Image, 'aruco_image_aux', self.aruco_image_callback, 10)
+
+        self.aruco_image_pub = self.create_publisher(Image, 'aruco_image', 10)
 
         self.aruco_pose_camera = {
             'timestamp': None,
+            'x': None,
+            'y': None,
+            'z': None
+        }
+
+        self.aruco_pose_local = {
             'x': None,
             'y': None,
             'z': None
@@ -54,6 +82,23 @@ class FrameConverter(Node):
 
         self.acceptable_timestamp_diff = 3 * 1e5
 
+    def aruco_image_callback(self, msg):
+        cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+        if (self.aruco_pose_camera['x'] is not None and self.aruco_pose_local['x'] is not None and self.vehicle_odometry['x'] is not None):
+            aruco_pose_camera_text = f"ArUco Pose Camera: x={self.aruco_pose_camera['x']:.2f}, y={self.aruco_pose_camera['y']:.2f}, z={self.aruco_pose_camera['z']:.2f}"
+            aruco_pose_local_text = f"ArUco Pose Local: x={self.aruco_pose_local['x']:.2f}, y={self.aruco_pose_local['y']:.2f}, z={self.aruco_pose_local['z']:.2f}"
+            vehicle_odometry_text = f"Vehicle Odometry: x={self.vehicle_odometry['x']:.2f}, y={self.vehicle_odometry['y']:.2f}, z={self.vehicle_odometry['z']:.2f}"
+
+            cv.putText(cv_image, aruco_pose_camera_text, (10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+            cv.putText(cv_image, aruco_pose_local_text, (10, 50), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+            cv.putText(cv_image, vehicle_odometry_text, (10, 70), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+
+        if self.record:
+            self.out.write(cv_image)
+
+        self.aruco_image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, encoding='bgr8'))
+
+
     def frame_conversion(self):
         if (self.vehicle_odometry['timestamp'] is not None) and (self.aruco_pose_camera['timestamp'] is not None):
             timestamp_diff = self.vehicle_odometry['timestamp'] - self.aruco_pose_camera['timestamp']
@@ -63,10 +108,10 @@ class FrameConverter(Node):
                 aruco_pose_drone = self.convert_cam2drone()
                 self.tvec_D_L = np.array([self.vehicle_odometry['x'], self.vehicle_odometry['y'], self.vehicle_odometry['z']])
                 self.rvec_D_L = self.convert_quat2rot()
-                aruco_pose_local = self.convert_drone2local(aruco_pose_drone)
-                aruco_pose_message.pose.position.x = aruco_pose_local[0]
-                aruco_pose_message.pose.position.y = aruco_pose_local[1]
-                aruco_pose_message.pose.position.z = aruco_pose_local[2]
+                self.convert_drone2local(aruco_pose_drone)
+                aruco_pose_message.pose.position.x = self.aruco_pose_local['x']
+                aruco_pose_message.pose.position.y = self.aruco_pose_local['y']
+                aruco_pose_message.pose.position.z = self.aruco_pose_local['z']
                 self.aruco_pose_local_pub.publish(aruco_pose_message)
 
 
@@ -92,7 +137,9 @@ class FrameConverter(Node):
     def convert_drone2local(self, aruco_pose_drone):
         T_D_L = self.get_transform_matrix(self.tvec_D_L, self.rvec_D_L)
         aruco_pose_local = np.dot(T_D_L, aruco_pose_drone)
-        return aruco_pose_local
+        self.aruco_pose_local['x'] = aruco_pose_local[0]
+        self.aruco_pose_local['y'] = aruco_pose_local[1]
+        self.aruco_pose_local['z'] = aruco_pose_local[2]
 
     def vehicle_odometry_callback(self, vehicle_odometry):
         self.vehicle_odometry['timestamp'] = vehicle_odometry.timestamp
