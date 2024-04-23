@@ -82,6 +82,24 @@ class FrameConverter(Node):
 
         self.acceptable_timestamp_diff = 3 * 1e5
 
+    def draw_frames(self, cv_image):
+        # Define the size of the frame
+        frame_size = 50
+
+        # Draw the camera frame (in red)
+        cv.arrowedLine(cv_image, (50, 50), (50 + frame_size, 50), (0, 0, 255), 2)
+        cv.arrowedLine(cv_image, (50, 50), (50, 50 - frame_size), (0, 0, 255), 2)
+
+        # Draw the drone frame (in green)
+        cv.arrowedLine(cv_image, (150, 50), (150 + frame_size, 50), (0, 255, 0), 2)
+        cv.arrowedLine(cv_image, (150, 50), (150, 50 - frame_size), (0, 255, 0), 2)
+
+        # Draw the local frame (in blue)
+        cv.arrowedLine(cv_image, (250, 50), (250 + frame_size, 50), (255, 0, 0), 2)
+        cv.arrowedLine(cv_image, (250, 50), (250, 50 - frame_size), (255, 0, 0), 2)
+
+        return cv_image
+
     def aruco_image_callback(self, msg):
         cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
         if (self.aruco_pose_camera['x'] is not None and self.aruco_pose_local['x'] is not None and self.vehicle_odometry['x'] is not None):
@@ -92,6 +110,8 @@ class FrameConverter(Node):
             cv.putText(cv_image, aruco_pose_camera_text, (10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
             cv.putText(cv_image, aruco_pose_local_text, (10, 50), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
             cv.putText(cv_image, vehicle_odometry_text, (10, 70), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+
+        #cv_image = self.draw_frames(cv_image)
 
         if self.record:
             self.out.write(cv_image)
