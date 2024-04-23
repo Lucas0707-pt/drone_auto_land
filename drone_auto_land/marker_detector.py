@@ -53,7 +53,7 @@ class MarkerDetector(Node):
         gray = cv.GaussianBlur(gray, (3, 3), 0)
 
         # Perform marker detection
-        aruco_dict = cv.aruco.Dictionary_get(cv.aruco.DICT_6X6_1000)
+        aruco_dict = cv.aruco.Dictionary_get(cv.aruco.DICT_7X7_1000)
         parameters = cv.aruco.DetectorParameters_create()
         corners, ids, _ = cv.aruco.detectMarkers(gray, aruco_dict, parameters=parameters)
 
