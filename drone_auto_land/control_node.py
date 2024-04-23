@@ -52,7 +52,7 @@ class OffboardLandingController(Node):
         self.current_z = 0.0
         self.desired_z = 0.0
         self.descent_height = 0.2  # Height to descend in z
-        self.land_dist_th = 0.2 # Height to land()
+        self.land_dist_th = 0.3 # Height to land()
         self.goal_z = 0.0
         self.error_threshold_z = 0.05  # Threshold for z error
         self.error_threshold_xz = 0.1 # Threshold for x and z error
