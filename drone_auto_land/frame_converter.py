@@ -23,7 +23,7 @@ class FrameConverter(Node):
             fourcc = cv.VideoWriter_fourcc(*'XVID')
             now = datetime.datetime.now()
             filename = f'src/drone_auto_land/videos/{now.year}_{now.month}_{now.day}_{now.hour}_{now.minute}_{now.second}.avi'
-            self.out = cv.VideoWriter(filename, fourcc, 30.0, (640, 480))
+            self.out = cv.VideoWriter(filename, fourcc, 10.0, (640, 480))
 
         # Configure QoS profile for publishing and subscribing
         qos_profile = QoSProfile(

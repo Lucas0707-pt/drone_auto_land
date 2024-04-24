@@ -9,7 +9,7 @@ class CameraBridge(Node):
         super().__init__('camera_bridge')
         self.camera_image_pub = self.create_publisher(Image, 'image_raw', 10)
         self.bridge = CvBridge()
-        self.timer = self.create_timer(1.0/30.0, self.camera_image_callback)
+        self.timer = self.create_timer(1.0/10.0, self.camera_image_callback)
         self.cap = cv.VideoCapture(2)
 
     def release_camera(self):
