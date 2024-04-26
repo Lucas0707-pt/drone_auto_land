@@ -26,7 +26,8 @@ setup(
             'processes = drone_auto_land.processes:main',
             'marker_detector = drone_auto_land.marker_detector:main',
             'frame_converter = drone_auto_land.frame_converter:main',
-            'control_node = drone_auto_land.control_node:main'
+            'control_node = drone_auto_land.control_node:main',
+            'data_logger = drone_auto_land.data_logger:main'
         ],
     },
 )
