@@ -3,7 +3,9 @@ from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
 from geometry_msgs.msg import PoseStamped
 from px4_msgs.msg import OffboardControlMode, TrajectorySetpoint, VehicleCommand, VehicleOdometry, VehicleStatus
+from std_msgs.msg import String
 import numpy as np
+import datetime
 
 __author__ = "Bruno Silva"
 __contact__ = "up201906367@up.pt"
@@ -13,7 +15,7 @@ class OffboardLandingController(Node):
 
     def __init__(self) -> None:
         super().__init__('offboard_landing_controller')
-        
+        now = datetime.datetime.now()
         # Configure QoS profile for publishing and subscribing
         qos_profile = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
@@ -21,6 +23,13 @@ class OffboardLandingController(Node):
             history=HistoryPolicy.KEEP_LAST,
             depth=1
         )
+
+        # Create QoS profile for publishing the current land state
+        qos_profile_state_publisher = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
+            durability=DurabilityPolicy.TRANSIENT_LOCAL,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=1)
 
         # Create publishers
         self.offboard_control_mode_publisher = self.create_publisher(
@@ -31,6 +40,10 @@ class OffboardLandingController(Node):
         
         self.vehicle_command_publisher = self.create_publisher(
             VehicleCommand, '/fmu/in/vehicle_command', qos_profile)
+        
+        self.current_land_state_publisher = self.create_publisher(
+            String, '/current_land_state', qos_profile_state_publisher)  
+
 
         # Create subscribers
         self.vehicle_odometry_subscriber = self.create_subscription(
@@ -152,7 +165,14 @@ class OffboardLandingController(Node):
         elif self.state == "Landing" and not self.land_command_sent:
             self.land()
 
-    
+        self.publish_current_land_state()
+
+    def publish_current_land_state(self):
+        """Publish the current land state along with timestamp."""
+        msg = String()
+        msg.data = f"{self.state}"
+        self.current_land_state_publisher.publish(msg)
+
     def correct_xy_position(self):
         """Correct the position of the drone in the horizontal plane."""
         if self.current_x is None or self.current_y is None or self.desired_x is None or self.desired_y is None or self.current_z is None or self.desired_z is None:

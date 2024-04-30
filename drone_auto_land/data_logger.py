@@ -2,6 +2,7 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped
 from px4_msgs.msg import VehicleOdometry
+from std_msgs.msg import String
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
 import csv
 import datetime
@@ -22,14 +23,23 @@ class DataLogger(Node):
             history=HistoryPolicy.KEEP_LAST,
             depth=1
         )
-
+        
         self.aruco_pose_camera_sub = self.create_subscription(
             PoseStamped, 'aruco_pose_camera', self.aruco_pose_camera_callback, 10)
         self.aruco_pose_local_sub = self.create_subscription(
             PoseStamped, 'aruco_pose_local', self.aruco_pose_local_callback, 10)
         self.vehicle_odometry_sub = self.create_subscription(
             VehicleOdometry, '/fmu/out/vehicle_odometry', self.vehicle_odometry_callback, qos_profile)
+        self.current_land_state_sub = self.create_subscription(
+            String, 'current_land_state', self.current_land_state_callback, 10)
 
+    def current_land_state_callback(self, msg):
+        data = {
+            'timestamp': int(datetime.datetime.now().timestamp() * 1e6),
+            'state': msg.data
+        }
+        self.save_data_land_state('current_land_state.csv', data)
+    
     def aruco_pose_camera_callback(self, msg):
         data = {
             'timestamp': int(msg.header.stamp.sec * 1e6 + msg.header.stamp.nanosec * 1e-3),
@@ -70,6 +80,17 @@ class DataLogger(Node):
             # Write the data for the topic
             writer.writerow([data['timestamp'], data['x'], data['y'], data['z']])
 
+    def save_data_land_state(self, filename, data):
+        file_path = os.path.join(self.foldername, filename)
+        file_exists = os.path.isfile(file_path)
+
+        with open(file_path, 'a', newline='') as f:
+            writer = csv.writer(f)
+
+            if not file_exists:
+                writer.writerow(['timestamp', 'state'])
+
+            writer.writerow([data['timestamp'], data['state']])
 
 
 
