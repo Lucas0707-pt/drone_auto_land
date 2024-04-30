@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
 # Define the log directory 
-log_dir = '2024_4_30_17_4_49/'
+log_dir = '2024_4_30_18_57_36/'
 # Define the list of CSV filenames
 aruco_pose_camera_file = log_dir + "aruco_pose_camera.csv"
 aruco_pose_local_file = log_dir + "aruco_pose_local.csv"
