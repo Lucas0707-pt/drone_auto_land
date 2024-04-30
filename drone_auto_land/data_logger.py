@@ -37,7 +37,7 @@ class DataLogger(Node):
             'y': msg.pose.position.y,
             'z': msg.pose.position.z
         }
-        self.save_data('aruco_pose_camera.csv', 'aruco_pose_camera', data)
+        self.save_data('aruco_pose_camera.csv', data)
 
     def aruco_pose_local_callback(self, msg):
         data = {
@@ -46,7 +46,7 @@ class DataLogger(Node):
             'y': msg.pose.position.y,
             'z': msg.pose.position.z
         }
-        self.save_data('aruco_pose_local.csv', 'aruco_pose_local', data)
+        self.save_data('aruco_pose_local.csv', data)
 
     def vehicle_odometry_callback(self, msg):
         data = {
@@ -55,9 +55,9 @@ class DataLogger(Node):
             'y': float(msg.position[1]),
             'z': float(msg.position[2])
         }
-        self.save_data('vehicle_odometry.csv', 'vehicle_odometry', data)
+        self.save_data('vehicle_odometry.csv', data)
 
-    def save_data(self, filename, topic, data):
+    def save_data(self, filename, data):
         file_path = os.path.join(self.foldername, filename)
         file_exists = os.path.isfile(file_path)
 
