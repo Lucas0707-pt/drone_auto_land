@@ -21,22 +21,8 @@ def generate_launch_description():
         parameters=[{'record': LaunchConfiguration('record')}]
     )
 
-    control_node = Node(
-        package='drone_auto_land',
-        executable='control_node',
-        name='control_node',
-    )
-
-    data_logger_node = Node(
-        package='drone_auto_land',
-        executable='data_logger',
-        name='data_logger',
-    )
-
     return LaunchDescription([
         declare_record_cmd,
         marker_detector_node,
         frame_converter_node,
-        data_logger_node,
-        control_node
     ])

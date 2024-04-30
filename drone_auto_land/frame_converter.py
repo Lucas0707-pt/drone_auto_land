@@ -14,7 +14,6 @@ import datetime
 class FrameConverter(Node):
     def __init__(self):
         super().__init__('frame_converter')
-
         self.declare_parameter('record', 0)
         self.record = bool(self.get_parameter('record').get_parameter_value().integer_value)
 
@@ -109,6 +108,7 @@ class FrameConverter(Node):
                 self.tvec_D_L = np.array([self.vehicle_odometry['x'], self.vehicle_odometry['y'], self.vehicle_odometry['z']])
                 self.rvec_D_L = self.convert_quat2rot()
                 self.convert_drone2local(aruco_pose_drone)
+                aruco_pose_message.header.stamp = self.get_clock().now().to_msg()
                 aruco_pose_message.pose.position.x = self.aruco_pose_local['x']
                 aruco_pose_message.pose.position.y = self.aruco_pose_local['y']
                 aruco_pose_message.pose.position.z = self.aruco_pose_local['z']

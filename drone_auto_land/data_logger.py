@@ -3,16 +3,17 @@ from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped
 from px4_msgs.msg import VehicleOdometry
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
-import json
-import time
+import csv
 import datetime
+import os
 
 class DataLogger(Node):
     def __init__(self):
         super().__init__('data_logger')
-
+        self.count = 0
         now = datetime.datetime.now()
-        self.filename = f'src/drone_auto_land/logs/{now.year}_{now.month}_{now.day}_{now.hour}_{now.minute}_{now.second}.json'
+        self.foldername = f'src/drone_auto_land/logs/{now.year}_{now.month}_{now.day}_{now.hour}_{now.minute}_{now.second}'
+        os.makedirs(self.foldername, exist_ok=True)  # Create the directory if it doesn't exist
 
         # Configure QoS profile for publishing and subscribing
         qos_profile = QoSProfile(
@@ -29,42 +30,49 @@ class DataLogger(Node):
         self.vehicle_odometry_sub = self.create_subscription(
             VehicleOdometry, '/fmu/out/vehicle_odometry', self.vehicle_odometry_callback, qos_profile)
 
-        self.data = {
-            'aruco_pose_camera': [],
-            'aruco_pose_local': [],
-            'vehicle_odometry': []
-        }
-
     def aruco_pose_camera_callback(self, msg):
-        self.data['aruco_pose_camera'].append({
-            'timestamp': time.time(),
+        data = {
+            'timestamp': int(msg.header.stamp.sec * 1e6 + msg.header.stamp.nanosec * 1e-3),
             'x': msg.pose.position.x,
             'y': msg.pose.position.y,
             'z': msg.pose.position.z
-        })
-        self.save_data()
+        }
+        self.save_data('aruco_pose_camera.csv', 'aruco_pose_camera', data)
 
     def aruco_pose_local_callback(self, msg):
-        self.data['aruco_pose_local'].append({
-            'timestamp': time.time(),
+        data = {
+            'timestamp': int(msg.header.stamp.sec * 1e6 + msg.header.stamp.nanosec * 1e-3),
             'x': msg.pose.position.x,
             'y': msg.pose.position.y,
             'z': msg.pose.position.z
-        })
-        self.save_data()
+        }
+        self.save_data('aruco_pose_local.csv', 'aruco_pose_local', data)
 
     def vehicle_odometry_callback(self, msg):
-        self.data['vehicle_odometry'].append({
-            'timestamp': time.time(),
-            'x': float(msg.position[0]), # Convert numpy float32 to Python float
+        data = {
+            'timestamp': msg.timestamp,
+            'x': float(msg.position[0]),
             'y': float(msg.position[1]),
             'z': float(msg.position[2])
-        })
-        self.save_data()
+        }
+        self.save_data('vehicle_odometry.csv', 'vehicle_odometry', data)
 
-    def save_data(self):
-        with open(self.filename, 'w') as f:
-            json.dump(self.data, f)
+    def save_data(self, filename, topic, data):
+        file_path = os.path.join(self.foldername, filename)
+        file_exists = os.path.isfile(file_path)
+
+        with open(file_path, 'a', newline='') as f:
+            writer = csv.writer(f)
+
+            if not file_exists:
+                writer.writerow(['timestamp', 'x', 'y', 'z'])  # Write the header
+
+            # Write the data for the topic
+            writer.writerow([data['timestamp'], data['x'], data['y'], data['z']])
+
+
+
+
 
 def main(args=None):
     rclpy.init(args=args)

@@ -72,8 +72,13 @@ ros2 launch drone_auto_land drone_auto_land.launch.py record:=0
 ros2 launch drone_auto_land drone_auto_land.launch.py record:=1
 ```
 
+7. Start the control node and data logging:
+    
+```bash
+ros2 launch drone_auto_land control.launch.py
+```
 
-7. Press Ctrl+C on the terminal running the camera to stop it, the video as output.avi will be saved in the same directory.
+8. Press Ctrl+C on the terminal running the camera to stop it, the video as output.avi will be saved in the same directory.
 
 ## Dependencies
 
