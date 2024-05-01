@@ -47,35 +47,22 @@ colcon build --packages-select drone_auto_land
 source install/local_setup.bash
 ```
 
-5. Run processes:
-
-```bash
-ros2 launch drone_auto_land processes.launch.py headless:=0 simulation:=1
-```
-
-5. 1) Run processes without Gazebo GUI:
+5. Run processes with Gazebo GUI (optional) and PX4 SITL simulation (0 for real drone, 1 for simulation):
 
 ```bash
 ros2 launch drone_auto_land processes.launch.py headless:=1 simulation:=1
 ```
 
-
-6. Start the camera feed and marker detection without video recording:
+6. Start the camera feed and marker detection with recording (optional):
     
-```bash
-ros2 launch drone_auto_land drone_auto_land.launch.py record:=0
-```
-
-6. 1) Start the camera feed and marker detection with video recording:
-
 ```bash
 ros2 launch drone_auto_land drone_auto_land.launch.py record:=1
 ```
 
-7. Start the control node and data logging:
+7. Start the control node with logging (optional):
     
 ```bash
-ros2 launch drone_auto_land control.launch.py
+ros2 launch drone_auto_land control.launch.py log:=1
 ```
 
 8. Press Ctrl+C on the terminal running the camera to stop it, the video as output.avi will be saved in the same directory.
