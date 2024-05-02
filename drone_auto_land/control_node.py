@@ -138,6 +138,8 @@ class OffboardLandingController(Node):
             self.publish_vehicle_command(VehicleCommand.VEHICLE_CMD_NAV_LAND, param7=float(abs(self.current_z)))
             self.get_logger().info('[L] Land command sent')
             self.land_command_sent = True
+            self.state = "Landed"
+            self.publish_current_land_state()
             exit(0)
 
     def publish_vehicle_command(self, command, **params) -> None:
