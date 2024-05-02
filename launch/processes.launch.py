@@ -17,6 +17,7 @@ def generate_launch_description():
         package='drone_auto_land',
         executable='processes',
         name='processes',
+        output='screen',
         parameters=[{'headless': LaunchConfiguration('headless')},
                     {'simulation': LaunchConfiguration('simulation')}]
     )
