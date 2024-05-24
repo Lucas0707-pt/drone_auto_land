@@ -20,22 +20,28 @@ class MarkerDetector(Node):
 
         self.marker_id = 29
         self.embedded_marker_id = 33
-        self.marker_bits = np.array([[0, 0, 0, 0, 0, 0, 0, 0, 0],
-                                        [0, 1, 1, 0, 0, 1, 0, 1, 0],
-                                        [0, 1, 1, 0, 1, 1, 0, 1, 0],
-                                        [0, 0, 1, 1, 1, 0, 1, 1, 0],
-                                        [0, 1, 0, 1, 1, 1, 0, 0, 0],
-                                        [0, 1, 0, 1, 1, 1, 1, 0, 0],
-                                        [0, 1, 1, 0, 1, 1, 0, 0, 0],
-                                        [0, 0, 1, 1, 0, 0, 0, 0, 0],
-                                        [0, 0, 0, 0, 0, 0, 0, 0, 0]],dtype=np.uint8)
+        self.marker_bits = np.array([[1, 1, 0, 0, 1, 0, 1],
+                                        [1, 1, 0, 1, 1, 0, 1],
+                                        [0, 1, 1, 1, 0, 1, 1],
+                                        [1, 0, 1, 1, 1, 0, 0],
+                                        [1, 0, 1, 1, 1, 1, 0],
+                                        [1, 1, 0, 1, 1, 0, 0],
+                                        [0, 1, 1, 0, 0, 0, 0]],dtype=np.uint8)
+        
+        self.embedded_marker_bits = np.array([[0, 0, 1, 1, 1, 0, 1],
+                                              [0, 0, 1, 0, 0, 0, 1],
+                                              [1, 0, 0, 0, 1, 0, 0],
+                                              [1, 0, 0, 1, 1, 1, 0],
+                                              [1, 1, 1, 0, 1, 0, 0],
+                                              [0, 0, 1, 0, 0, 1, 1],
+                                              [1, 0, 1, 1, 1, 0, 1]], dtype=np.uint8)
 
         self.marker_size = 0.291
         self.embedded_marker_size = 0.033
 
         # Load the camera matrix and distortion coefficients
-        camera_matrix_file = 'camera_parameters/camera_matrix.txt'
-        distortion_coefficients_file = 'camera_parameters/camera_distortion_coefficients.txt'
+        camera_matrix_file = 'src/drone_auto_land/drone_auto_land/camera_parameters/camera_matrix.txt'
+        distortion_coefficients_file = 'src/drone_auto_land/drone_auto_land/camera_parameters/camera_distortion_coefficients.txt'
         self.camera_matrix = np.loadtxt(camera_matrix_file, delimiter=',')
         self.distortion_coeffs = np.loadtxt(distortion_coefficients_file, delimiter=',')
 
@@ -53,10 +59,11 @@ class MarkerDetector(Node):
         threshold_img = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 2)
         return threshold_img
     
-    def detect_corners(self, img, min_area, max_area):
-        contours, _ = cv.findContours(img, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-        
-        group_of_corners = []
+    def detect_corners(self, img, min_area, max_area, minMarkerDistanceRate=0.05):
+        blurred = cv.GaussianBlur(img, (3, 3), 0)
+        contours, _ = cv.findContours(blurred, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+
+        potential_marker_corners = []
         for contour in contours:
             area = cv.contourArea(contour)
             precision = 0.04
@@ -65,16 +72,12 @@ class MarkerDetector(Node):
 
             if (min_area < area < max_area and len(approx) == 4):
                 #approx = cv.convexHull(approx)
-                approx = approx.reshape((-1, 2))
-                group_of_corners.append(approx)
-                #self.get_logger().info(f"Area: {area}")
+                approx = approx.reshape((-1, 2)).astype(np.float32)
+                potential_marker_corners.append(approx)
 
-        return group_of_corners
-
-        #self.get_logger().info(f"Number of corners detected: {len(group_of_corners[0])}")
+        return potential_marker_corners
     
-    def verify_potential_marker(self, img, corners, markerBorderBits=1, minOtsuStdDev=5.0, perspectiveRemovePixelPerCell=4, perspectiveRemoveIgnoredMarginPerCell=0.13):
-        
+    def get_bits(self, img, corners, markerBorderBits=1, minOtsuStdDev=5.0, perspectiveRemovePixelPerCell=4, perspectiveRemoveIgnoredMarginPerCell=0.13):
         dst_pts = np.array([[0, 0], [299, 0], [299, 299], [0, 299]], dtype=np.float32)
 
         corners = corners.astype(np.float32)
@@ -100,8 +103,45 @@ class MarkerDetector(Node):
                     bits[y,x] = 1
 
 
-        bits_image = cv.cvtColor(bits.astype(np.uint8)*255, cv.COLOR_GRAY2BGR)
-        return bits_image
+        return bits
+    
+    def verify_potential_marker(self, bits, maxErroneousBitsInBorderRate, maxErroneousBitsInMarkerRate):
+
+        marker_id = None
+
+        total_bits = bits.shape[0] * bits.shape[1]
+
+        max_erroneous_bits_border = total_bits * maxErroneousBitsInBorderRate
+        max_erroneous_bits_marker = total_bits * maxErroneousBitsInMarkerRate
+
+        # Check if the border bits are correct
+        border_bits = np.concatenate((bits[0, :], bits[-1, :], bits[:, 0], bits[:, -1]))
+        erroneous_border_bits = np.sum(border_bits == 1)
+
+        if erroneous_border_bits > max_erroneous_bits_border:
+            return False, []
+        
+        #Check if the marker bits are correct
+        marker_bits = bits[1:8, 1:8]
+        erroneous_marker_bits = np.sum(marker_bits != self.marker_bits)
+        erroneous_embedded_marker_bits = np.sum(marker_bits != self.embedded_marker_bits)
+
+        #Check if the marker bits are correct in all rotations
+        for _ in range(4):
+            if erroneous_marker_bits <= max_erroneous_bits_marker:
+                marker_id = self.marker_id
+                break
+            if erroneous_embedded_marker_bits <= max_erroneous_bits_marker:
+                marker_id = self.embedded_marker_id
+                break
+
+            marker_bits = np.rot90(marker_bits)
+            erroneous_marker_bits = np.sum(marker_bits != self.marker_bits)
+            erroneous_embedded_marker_bits = np.sum(marker_bits != self.embedded_marker_bits)
+
+        return marker_id is not None, marker_id
+        
+
         
 
     
@@ -110,6 +150,44 @@ class MarkerDetector(Node):
         _, tvec = ret[0][0,0,:], ret[1][0,0,:]
         return tvec
 
+    def remove_inner_markers(self, marker_corners, marker_ids, minCenterDistance, minCornerDistance):
+        # Calculate the centers of the markers
+        marker_centers = [np.mean(corners, axis=0) for corners in marker_corners]
+
+        # Calculate the perimeters of the markers
+        marker_perimeters = [cv.arcLength(corners, True) for corners in marker_corners]
+
+        # Create a list to store the indices of the markers to keep
+        keep_indices = []
+
+        for i in range(len(marker_corners)):
+            keep = True  # Initially, we want to keep the marker
+
+            for j in range(len(marker_corners)):
+                if i != j:  # Don't compare the marker with itself
+                    # Calculate the distance between the centers of the markers
+                    center_distance = np.linalg.norm(marker_centers[i] - marker_centers[j])
+
+                    # Calculate the minimum distance between the corners of the markers
+                    corner_distances = [np.linalg.norm(corner_i - corner_j) for corner_i in marker_corners[i] for corner_j in marker_corners[j]]
+                    min_corner_distance = min(corner_distances)
+
+                    # If the center distance or the minimum corner distance is less than the thresholds, discard the smaller marker
+                    if center_distance < minCenterDistance or min_corner_distance < minCornerDistance:
+                        if marker_perimeters[i] < marker_perimeters[j]:
+                            keep = False
+                            break
+
+            if keep:
+                keep_indices.append(i)
+
+        # Keep only the markers that passed the distance checks
+        marker_corners = [marker_corners[i] for i in keep_indices]
+
+        #get the marker ids of the markers that passed the distance checks
+        marker_ids = [marker_ids[i] for i in keep_indices]
+
+        return marker_corners, marker_ids
 
 
     # Callback function for the camera image
@@ -118,70 +196,50 @@ class MarkerDetector(Node):
         cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
         undistorted_img = cv.undistort(cv_image, self.camera_matrix, self.distortion_coeffs)
         cv_image_bin = self.image_binarization(undistorted_img)
-        group_of_corners = self.detect_corners(cv_image_bin, 1000, 10000)
+        potential_marker_corners = self.detect_corners(cv_image_bin, 300, 10000)
+        marker_ids = []
+        marker_corners = []
 
-        if len(group_of_corners) == 0:
-            return
-        
-        cv_image = self.verify_potential_marker(undistorted_img, group_of_corners[0])
-        #components = self.connected_components(cv_image_bin)
-        #cv_image = self.connected_components(cv_image_bin)
-        #contours, _ = cv.findContours(cv_image_bin, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-        #draw the contours
-        #cv_image = cv.drawContours(cv_image, contours, -1, (0, 255, 0), 3)
+        if len(potential_marker_corners) > 0:
 
-        """
-        cv_image = cv.undistort(cv_image, self.camera_matrix, self.distortion_coeffs)
-        gray = cv.cvtColor(cv_image, cv.COLOR_BGR2GRAY)
-        _, treshold_img = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 11, 2)
-        contours, _ = cv.findContours(treshold_img, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+            for corners in potential_marker_corners:
+                potential_marker_bits = self.get_bits(undistorted_img, corners)
+                is_marker, marker_id = self.verify_potential_marker(potential_marker_bits, 0.2, 0.2)
+                if is_marker:
+                    marker_ids.append(marker_id)
+                    marker_corners.append(corners)
 
-        #Apply otsu thresholding with gaussian filtering
-        gray = cv.GaussianBlur(gray, (3, 3), 0)
-        _, threshold_image = cv.threshold(gray, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
+            if (len(marker_ids) > 0):
+            
+                marker_corners, marker_ids = self.remove_inner_markers(marker_corners, marker_ids, 5, 20)
+                marker_corners = tuple(np.array([corner], dtype=np.float32) for corner in marker_corners)
+                marker_ids = np.array(marker_ids, dtype=np.int32).reshape(-1, 1)
 
+                undistorted_img = cv.aruco.drawDetectedMarkers(undistorted_img, marker_corners, marker_ids, (255, 0, 0))
 
-        # Perform marker detection
-        aruco_dict = cv.aruco.Dictionary_get(cv.aruco.DICT_7X7_1000)
-        parameters = cv.aruco.DetectorParameters_create()
-        corners, ids, _ = cv.aruco.detectMarkers(gray, aruco_dict, parameters=parameters)
+                tvec = None
 
-        # If at least one marker detected
-        if len(corners) > 0:
+                match len(marker_ids):
+                    case 1:
+                        tvec = self.estimate_pose(marker_corners, (self.marker_size if marker_ids[0][0] == self.marker_id else self.embedded_marker_size))
+                    case 2:
+                        print("estou aqui!!!")
+                        # check which of the corners is the big marker and estimate its pose
+                        if marker_ids[0][0] == self.marker_id:
+                            tvec = self.estimate_pose([marker_corners[0]], self.marker_size)
+                        else:
+                            tvec = self.estimate_pose([marker_corners[1]], self.marker_size)
+                    case _:
+                        self.get_logger().info("More than 2 markers detected")
 
-            #Draw the detected markers
-            cv_image = cv.aruco.drawDetectedMarkers(cv_image, corners, ids)
+                if tvec is not None:
+                    self.publish_aruco_pose(tvec[0], tvec[1], tvec[2])
 
-            #center of the marker
-            for i in range(len(corners)):
-                c = corners[i][0]
-                cx = int((c[0][0] + c[1][0] + c[2][0] + c[3][0]) / 4)
-                cy = int((c[0][1] + c[1][1] + c[2][1] + c[3][1]) / 4)
-                cv.circle(cv_image, (cx, cy), 5, (0, 0, 255), -1)
+                    aruco_pose_camera_text = f"ArUco Pose Camera: x={tvec[0]:.2f}, y={tvec[1]:.2f}, z={tvec[2]:.2f}"
+                    cv.putText(undistorted_img, aruco_pose_camera_text, (10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+            # Publish the image with the detected markers
 
-            tvec = None
-
-            match len(ids):
-                case 1:
-                    tvec = self.estimate_pose(corners, (self.marker_size if ids[0][0] == self.marker_id else self.embedded_marker_size))
-                case 2:
-                    # check which of the corners is the big marker and estimate its pose
-                    if ids[0][0] == self.marker_id:
-                        tvec = self.estimate_pose([corners[0]], self.marker_size)
-                    else:
-                        tvec = self.estimate_pose([corners[1]], self.marker_size)
-                case _:
-                    self.get_logger().info("More than 2 markers detected")
-
-            self.publish_aruco_pose(tvec[0], tvec[1], tvec[2])
-
-            aruco_pose_camera_text = f"ArUco Pose Camera: x={tvec[0]:.2f}, y={tvec[1]:.2f}, z={tvec[2]:.2f}"
-            cv.putText(cv_image, aruco_pose_camera_text, (10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-
-
-        # Publish the image with the detected markers
-        """
-        self.aruco_image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, encoding='rgb8'))
+        self.aruco_image_pub.publish(self.bridge.cv2_to_imgmsg(undistorted_img, encoding='bgr8'))
 
         
 def main(args=None):
