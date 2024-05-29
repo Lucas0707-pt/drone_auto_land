@@ -35,7 +35,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         declare_record_cmd,
-        camera_bridge_node,
+        #camera_bridge_node,
         declare_record_cmd,
         marker_detector_node,
         frame_converter_node,
