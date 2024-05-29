@@ -207,7 +207,8 @@ class OffboardLandingController(Node):
 
             # Condition to switch to descent state
             if self.distance_to_desired_position(self.current_x, self.current_y, self.desired_x, self.desired_y) < self.error_threshold_xy:
-                self.get_logger().info("[C] Horizontal Error = %.2fm" % (self.distance_to_desired_position(self.current_x, self.current_y, self.desired_x, self.desired_y)))                self.state = "Descent"
+                self.get_logger().info("[C] Horizontal Error = %.2fm" % (self.distance_to_desired_position(self.current_x, self.current_y, self.desired_x, self.desired_y)))                
+                self.state = "Descent"
                 self.setpoint_published = False
 
         else:
