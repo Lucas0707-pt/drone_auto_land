@@ -132,7 +132,7 @@ class OffboardLandingController(Node):
     def land(self):
         """Command the vehicle to land at its current altitude."""
         if self.current_z is not None: 
-            self._logger.info('[L] Landing at the altitude of %.2fm' % abs(self.current_z))
+            self._logger.info('[L] Landing at the altitude of %.2fm' % abs(self.current_camera_z))
             self.publish_vehicle_command(VehicleCommand.VEHICLE_CMD_NAV_LAND, param7=float(abs(self.current_z)))
             self.get_logger().info('[L] Land command sent')
             self.land_command_sent = True
@@ -231,7 +231,7 @@ class OffboardLandingController(Node):
             self.get_logger().info("[D] Descending to position x=%.2fm, y=%.2fm, z=%.2f" % (self.current_x, self.current_y, self.camera_goal_z))                       
             
             # Generate  z = start_z + t * (end_z - start_z)te linear trajectory for descent
-            waypoints = self.generate_linear_trajectory(self.current_x, self.current_y, self.desired_x, self.desired_y, self.current_z, self.current_z + self.descent_height, num_points=2)
+            waypoints = self.generate_linear_trajectory(self.current_x, self.current_y, self.current_x, self.current_z, self.current_z, self.current_z + self.descent_height, num_points=2)
             
             # Publish trajectory setpoints
             for waypoint in waypoints:
