@@ -92,8 +92,8 @@ class DataLogger(Node):
 
             writer.writerow([data['timestamp'], data['state']])
         
-        if data['state'] == 'Landed':
-            exit()
+        #if data['state'] == 'Landed':
+        #    exit()
 
 
 
