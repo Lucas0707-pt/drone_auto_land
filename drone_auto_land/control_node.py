@@ -85,6 +85,7 @@ class OffboardLandingController(Node):
 
         # Gain associated with velocity value
         self.k = 0.1
+        self.kz = 1.0
 
         # Create a timer to publish control commands
         self.timer = self.create_timer(0.02, self.timer_callback)
@@ -240,22 +241,28 @@ class OffboardLandingController(Node):
         # Calculate error in z
         error_z = self.current_camera_z - self.descent_height
 
+  
         if not self.setpoint_published:
             self.goal_z = self.current_z + self.descent_height
             self.camera_goal_z = self.current_camera_z - self.descent_height
 
             self.get_logger().info("[D] Current position x=%.2fm, y=%.2fm, z=%.2f" % (self.current_x, self.current_y, self.current_camera_z))
             self.get_logger().info("[D] Descending to position x=%.2fm, y=%.2fm, z=%.2f" % (self.current_x, self.current_y, self.camera_goal_z))                       
+            ## Generate  z = start_z + t * (end_z - start_z)te linear trajectory for descent
+            # waypoints = self.generate_linear_trajectory(self.current_x, self.current_y, self.desired_x, self.desired_y, self.current_z, self.current_z + self.descent_height, num_points=2)
             
-            # Generate  z = start_z + t * (end_z - start_z)te linear trajectory for descent
-            waypoints = self.generate_linear_trajectory(self.current_x, self.current_y, self.desired_x, self.desired_y, self.current_z, self.current_z + self.descent_height, num_points=2)
-            
-            # Publish trajectory setpoints
-            for waypoint in waypoints:
-                self.publish_trajectory_setpoint(waypoint[0], waypoint[1], waypoint[2])
-                self.setpoint_published = True
+            # # Publish trajectory setpoints
+            # for waypoint in waypoints:
+            #     self.publish_trajectory_setpoint(waypoint[0], waypoint[1], waypoint[2])
+            self.setpoint_published = True
         
         error_z = self.current_camera_z - self.camera_goal_z
+
+        self.vz = self.kz * error_z
+        self.publish_velocity_setpoint(0.0, 0.0, self.vz)
+        self.get_logger().info("[D] Current position x=%.2fm, y=%.2fm, z=%.2f" % (self.current_x, self.current_y, self.current_camera_z))
+        self.get_logger().info("[D] Descending to position x=%.2fm, y=%.2fm, z=%.2f" % (self.current_x, self.current_y, self.camera_goal_z))                       
+        self.get_logger().info("[D] Control velocity x=%.2fm/s, y=%.2fm/s, z=%.2fm/s" % (0.0, 0.0, self.vz))
 
         # Condition to switch to landing state
         if abs(self.current_camera_z) < self.land_dist_th:
