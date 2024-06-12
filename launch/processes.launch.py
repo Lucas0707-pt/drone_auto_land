@@ -12,6 +12,12 @@ def generate_launch_description():
     declare_simulation_cmd = DeclareLaunchArgument( 
         'simulation', default_value='1',
         description='Run in simulation mode')
+    
+    camera_bridge_node = Node(
+        package='drone_auto_land',
+        executable='camera_bridge',
+        name='camera_bridge',
+    )
 
     processes_node = Node(
         package='drone_auto_land',
@@ -24,6 +30,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         declare_headless_cmd,
+        camear_bridge_node,
         declare_simulation_cmd,
         processes_node
     ])

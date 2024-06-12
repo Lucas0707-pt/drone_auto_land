@@ -11,7 +11,7 @@ class MarkerDetector(Node):
         super().__init__('marker_detector')
         
         #create publishers and subscribers
-        self.camera_image_sub = self.create_subscription(Image, '/v4l/camera/image_raw', self.image_callback, 10)
+        self.camera_image_sub = self.create_subscription(Image, '/camera', self.image_callback, 10)
         self.aruco_image_pub = self.create_publisher(Image, 'aruco_image_aux', 10)
         self.aruco_pose_camera_pub = self.create_publisher(PoseStamped, 'aruco_pose_camera', 10)
 
