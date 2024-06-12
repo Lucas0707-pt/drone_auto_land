@@ -65,10 +65,11 @@ class OffboardLandingController(Node):
         self.current_z = 0.0
         self.desired_z = 0.0
         self.descent_height = 0.2  # Height to descend in z
-        self.land_dist_th = 0.3 # Height to land()
+        self.land_dist_th = 0.5 # Height to land()
         self.goal_z = 0.0
-        self.error_threshold_z = 0.05  # Threshold for z error
-        self.error_threshold_xy = 0.1 # Threshold for x and y error
+        self.camera_goal_z = 0.0
+        self.error_threshold_z = 0.1  # Threshold for z error
+        self.error_threshold_xy = 0.15 # Threshold for x and y error
         
         self.state = "Correction" # Correction / Descent / Landing
 
@@ -80,6 +81,10 @@ class OffboardLandingController(Node):
 
         # Flag to track if offboard mode has been started
         self.offboard_started = False
+
+        # Gain associated with velocity value
+        self.k = 0.5
+        self.kz = 1.0
 
         # Create a timer to publish control commands
         self.timer = self.create_timer(0.02, self.timer_callback)
@@ -104,13 +109,19 @@ class OffboardLandingController(Node):
     def aruco_pose_camera_callback(self, aruco_pose_camera):
         """Callback function for aruco_pose_camera topic subscriber."""
         self.aruco_pose_camera = aruco_pose_camera
+        self.current_camera_x = aruco_pose_camera.pose.position.x
+        self.current_camera_y = aruco_pose_camera.pose.position.y
         self.current_camera_z = aruco_pose_camera.pose.position.z
+
+        # Calculate velocity setpoints
+        self.vx = -self.k * self.current_camera_y
+        self.vy = self.k * self.current_camera_x
 
     def publish_offboard_control_heartbeat_signal(self):
         """Publish the offboard control mode."""
         msg = OffboardControlMode()
-        msg.position = True
-        msg.velocity = False
+        msg.position = False
+        msg.velocity = True
         msg.acceleration = False
         msg.attitude = False
         msg.body_rate = False
@@ -184,30 +195,32 @@ class OffboardLandingController(Node):
         msg.data = f"{self.state}"
         self.current_land_state_publisher.publish(msg)
     
+
     def correct_xy_position(self):
         """Correct the position of the drone in the horizontal plane."""
         if self.current_x is None or self.current_y is None or self.desired_x is None or self.desired_y is None or self.current_z is None or self.desired_z is None:
             self.get_logger().info("Current x, y, z or desired x, y, z not available.")
             return
 
-        #if (self.nav_state == VehicleStatus.NAVIGATION_STATE_OFFBOARD):
-        if self.offboard_started == True:
+        if (self.nav_state == VehicleStatus.NAVIGATION_STATE_OFFBOARD):
             if not self.setpoint_published:
                 self.get_logger().info("[C] Current position x=%.2fm, y=%.2fm, z=%.2f" % (self.current_x, self.current_y, self.current_z))
                 self.get_logger().info("[C] Correcting to x=%.2fm, y=%.2fm, z=%.2f" % (self.desired_x, self.desired_y, self.current_z))
+                self.get_logger().info("[C] Current camera position x=%.2fm, y=%.2fm, z=%.2f" % (self.current_camera_x, self.current_camera_y, self.current_camera_z))
+                self.get_logger().info("[C] Control velocity x=%.2fm/s, y=%.2fm/s" % (self.vx, self.vy))
                 
-                # Generate linear trajectory for correction
-                waypoints = self.generate_linear_trajectory(self.current_x, self.current_y, self.desired_x, self.desired_y, self.current_z, self.current_z, num_points=2)
+                # # Generate linear trajectory for correction
+                # waypoints = self.generate_linear_trajectory(self.current_x, self.current_y, self.desired_x, self.desired_y, self.current_z, self.current_z, num_points=2)
                 
-                # Publish trajectory setpoints
-                for waypoint in waypoints:
-                    self.publish_trajectory_setpoint(waypoint[0], waypoint[1], waypoint[2])
-                    
-                self.setpoint_published = True
+                # # Publish trajectory setpoints
+                # for waypoint in waypoints:
+                #     self.publish_trajectory_setpoint(waypoint[0], waypoint[1], waypoint[2])
+                self.publish_velocity_setpoint(self.vx, self.vy, 0.0)
+                self.setpoint_published = False
 
             # Condition to switch to descent state
-            if self.distance_to_desired_position(self.current_x, self.current_y, self.desired_x, self.desired_y) < self.error_threshold_xy:
-                self.get_logger().info("[C] Horizontal Error = %.2fm" % (self.distance_to_desired_position(self.current_x, self.current_y, self.desired_x, self.desired_y)))                
+            if self.distance_to_desired_position(self.current_x, self.current_y, self.desired_x, self.desired_y) < self.error_threshold_xz:
+                self.get_logger().info("[C] Horizontal Error = %.2fm" % (self.distance_to_desired_position(self.current_x, self.current_y, self.desired_x, self.desired_y)))
                 self.state = "Descent"
                 self.setpoint_published = False
 
@@ -217,28 +230,40 @@ class OffboardLandingController(Node):
     def descend(self):
         """Descend the predefined height."""
         if self.current_z is None or self.descent_height is None or self.desired_z is None or self.current_camera_z is None:
-            self.get_logger().info("Current z, desired z, camera z, or descent height not available.")
+            self.get_logger().info("Current z, camera z, desired z or descent height not available.")
             return
         
+        # Adaptive descent height
+        if (self.current_camera_z > 5.0):
+            self.descent_height = 1.0
+        else:
+            self.descent_height = 0.2
+
         # Calculate error in z
         error_z = self.current_camera_z - self.descent_height
 
+  
         if not self.setpoint_published:
             self.goal_z = self.current_z + self.descent_height
             self.camera_goal_z = self.current_camera_z - self.descent_height
 
             self.get_logger().info("[D] Current position x=%.2fm, y=%.2fm, z=%.2f" % (self.current_x, self.current_y, self.current_camera_z))
             self.get_logger().info("[D] Descending to position x=%.2fm, y=%.2fm, z=%.2f" % (self.current_x, self.current_y, self.camera_goal_z))                       
+            ## Generate  z = start_z + t * (end_z - start_z)te linear trajectory for descent
+            # waypoints = self.generate_linear_trajectory(self.current_x, self.current_y, self.desired_x, self.desired_y, self.current_z, self.current_z + self.descent_height, num_points=2)
             
-            # Generate  z = start_z + t * (end_z - start_z)te linear trajectory for descent
-            waypoints = self.generate_linear_trajectory(self.current_x, self.current_y, self.current_x, self.current_z, self.current_z, self.current_z + self.descent_height, num_points=2)
-            
-            # Publish trajectory setpoints
-            for waypoint in waypoints:
-                self.publish_trajectory_setpoint(waypoint[0], waypoint[1], waypoint[2])
-                self.setpoint_published = True
+            # # Publish trajectory setpoints
+            # for waypoint in waypoints:
+            #     self.publish_trajectory_setpoint(waypoint[0], waypoint[1], waypoint[2])
+            self.setpoint_published = True
         
         error_z = self.current_camera_z - self.camera_goal_z
+
+        self.vz = self.kz * error_z
+        self.publish_velocity_setpoint(0.0, 0.0, self.vz)
+        self.get_logger().info("[D] Current position x=%.2fm, y=%.2fm, z=%.2f" % (self.current_x, self.current_y, self.current_camera_z))
+        self.get_logger().info("[D] Descending to position x=%.2fm, y=%.2fm, z=%.2f" % (self.current_x, self.current_y, self.camera_goal_z))                       
+        self.get_logger().info("[D] Control velocity x=%.2fm/s, y=%.2fm/s, z=%.2fm/s" % (0.0, 0.0, self.vz))
 
         # Condition to switch to landing state
         if abs(self.current_camera_z) < self.land_dist_th:
@@ -249,7 +274,7 @@ class OffboardLandingController(Node):
             self.get_logger().info("[D] Vertical Error = %.2fm" % abs(error_z))
             self.state = "Correction"
             # Reset setpoint_published flag
-            self.setpoint_published = False
+            self.setpoint_published = False      
 
     def generate_linear_trajectory(self, start_x, start_y, end_x, end_y, start_z, end_z, num_points):
         """Generate a linear trajectory."""
@@ -275,6 +300,7 @@ class OffboardLandingController(Node):
         msg.position = position_array
         msg.timestamp = int(self.get_clock().now().nanoseconds / 1000)
         self.trajectory_setpoint_publisher.publish(msg)
+
     def generate_linear_trajectory(self, start_x, start_y, end_x, end_y, start_z, end_z, num_points):
         """Generate a linear trajectory."""
         trajectory = []
@@ -297,6 +323,18 @@ class OffboardLandingController(Node):
 
         # Assign the array to msg.position
         msg.position = position_array
+        msg.timestamp = int(self.get_clock().now().nanoseconds / 1000)
+        self.trajectory_setpoint_publisher.publish(msg)
+
+    def publish_velocity_setpoint(self, vx: float, vy: float, vz: float):
+        """Publish the velocity setpoint."""
+        msg = TrajectorySetpoint()
+        velocity_array = np.array([vx, vy, vz], dtype=np.float32)
+
+        # Assign the array to msg.velocity
+        msg.position = np.array([float("nan"), float("nan"), float("nan")], dtype=np.float32)
+        msg.velocity = velocity_array
+        msg.yaw = 0.0
         msg.timestamp = int(self.get_clock().now().nanoseconds / 1000)
         self.trajectory_setpoint_publisher.publish(msg)
 
