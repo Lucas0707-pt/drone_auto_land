@@ -19,7 +19,6 @@ class ProcessesNode(Node):
         px4_sitl_sim = ["gnome-terminal", "--tab", "--","bash", "-c", "cd ../PX4-Autopilot && " + ("HEADLESS=1 " if self.headless else "") + "PX4_GZ_WORLD=aruco make px4_sitl gz_x500_depth", "; exec bash"]
 
         micro_XRCE_agent_drone = ["sudo", "MicroXRCEAgent", "serial", "--dev", "/dev/serial0", "-b", "921600"]
-        camera_bridge_drone = ["ros2", "run", "v4l2_camera", "v4l2_camera_node"]
 
         # Run the commands in separate terminals
         if self.simulation:
@@ -31,7 +30,6 @@ class ProcessesNode(Node):
         else:
             subprocess.Popen(micro_XRCE_agent_drone)
             time.sleep(1)
-            subprocess.Popen(camera_bridge_drone)
         time.sleep(1)
 
 
