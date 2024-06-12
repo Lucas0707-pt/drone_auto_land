@@ -213,7 +213,7 @@ class MarkerDetector(Node):
         undistorted_img = cv.undistort(cv_image, self.camera_matrix, self.distortion_coeffs)
         undistorted_img_bin = self.image_binarization(undistorted_img)
         undistorted_img_copy = undistorted_img.copy()
-        potential_marker_corners = self.detect_corners(undistorted_img_bin, undistorted_img_copy, 1000, 1000000, 1.40,1.75)
+        potential_marker_corners = self.detect_corners(undistorted_img_bin, undistorted_img_copy, 100, 1000000, 1.40,1.75)
 
         marker_ids = []
         marker_corners = []
