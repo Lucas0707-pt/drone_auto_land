@@ -84,7 +84,7 @@ class OffboardLandingController(Node):
         self.offboard_started = False
 
         # Gain associated with velocity value
-        self.k = 0.5
+        self.k = 0.2
         self.kz = 1.0
 
         # Create a timer to publish control commands
