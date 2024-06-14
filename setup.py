@@ -28,6 +28,7 @@ setup(
             'frame_converter = drone_auto_land.frame_converter:main',
             'control_node = drone_auto_land.control_node:main',
             'camera_bridge = drone_auto_land.camera_bridge:main',
+            'data_logger = drone_auto_land.data_logger:main',
         ],
     },
 )

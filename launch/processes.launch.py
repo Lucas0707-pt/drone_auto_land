@@ -30,7 +30,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         declare_headless_cmd,
-        camear_bridge_node,
+        camera_bridge_node,
         declare_simulation_cmd,
         processes_node
     ])
