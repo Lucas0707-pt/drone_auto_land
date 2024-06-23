@@ -53,10 +53,10 @@ source install/local_setup.bash
 ros2 launch drone_auto_land processes.launch.py headless:=1 simulation:=1
 ```
 
-6. Start the camera feed and marker detection with recording (optional):
+6. Start marker detection and pose estimation with recording (optional):
     
 ```bash
-ros2 launch drone_auto_land drone_auto_land.launch.py record:=1
+ros2 launch drone_auto_land marker_detection.launch.py record:=1
 ```
 
 7. Start the control node with logging (optional):
