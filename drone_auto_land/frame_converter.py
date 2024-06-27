@@ -1,7 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
-from px4_msgs.msg import VehicleOdometry
+from px4_msgs.msg import VehicleOdometry, TrajectorySetpoint
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import PoseStamped
 import numpy as np
@@ -41,6 +41,9 @@ class FrameConverter(Node):
         self.vehicle_odometry_sub = self.create_subscription(
             VehicleOdometry, '/fmu/out/vehicle_odometry', self.vehicle_odometry_callback, qos_profile)
         
+        self.trajectory_setpoint_sub = self.create_subscription(
+            TrajectorySetpoint, '/fmu/in/trajectory_setpoint', self.trajectory_setpoint_callback, qos_profile)
+        
         self.aruco_pose_drone_pub = self.create_publisher(
             PoseStamped, 'aruco_pose_drone', 10)
         
@@ -72,7 +75,10 @@ class FrameConverter(Node):
             'qw': None,
             'qx': None,
             'qy': None,
-            'qz': None
+            'qz': None,
+            'vx': None,
+            'vy': None,
+            'vz': None
         }
         
         self.velocity_setpoint = {
@@ -115,14 +121,15 @@ class FrameConverter(Node):
         if (self.aruco_pose_camera['x'] is not None and self.aruco_pose_local['x'] is not None and self.vehicle_odometry['x'] is not None):
             aruco_pose_camera_text = f"ArUco Pose Camera: x={self.aruco_pose_camera['x']:.2f}, y={self.aruco_pose_camera['y']:.2f}, z={self.aruco_pose_camera['z']:.2f}"
             aruco_pose_local_text = f"ArUco Pose Local: x={self.aruco_pose_local['x']:.2f}, y={self.aruco_pose_local['y']:.2f}, z={self.aruco_pose_local['z']:.2f}"
+            drone_position_text = f"Drone Position: x={self.vehicle_odometry['x']:.2f}, y={self.vehicle_odometry['y']:.2f}, z={self.vehicle_odometry['z']:.2f}"
+            drone_velocity_text = f"Drone Velocity: vx={self.vehicle_odometry['vx']:.2f}, vy={self.vehicle_odometry['vy']:.2f}, vz={self.vehicle_odometry['vz']:.2f}"
             velocity_setpoint_text = f"Velocity Setpoint: vx={self.velocity_setpoint['vx']:.2f}, vy={self.velocity_setpoint['vy']:.2f}, vz={self.velocity_setpoint['vz']:.2f}"
-            vehicle_odometry_text = f"Drone Position: x={self.vehicle_odometry['x']:.2f}, y={self.vehicle_odometry['y']:.2f}, z={self.vehicle_odometry['z']:.2f}"
-
 
             cv.putText(cv_image, aruco_pose_camera_text, (10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
             cv.putText(cv_image, aruco_pose_local_text, (10, 50), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-            cv.putText(cv_image, velocity_setpoint_text, (10, 70), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-            cv.putText(cv_image, vehicle_odometry_text, (10, 90), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+            cv.putText(cv_image, drone_position_text, (10, 70), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+            cv.putText(cv_image, velocity_setpoint_text, (10, 90), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+            cv.putText(cv_image, drone_velocity_text, (10, 110), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
         if self.record:
             self.out.write(cv_image)
@@ -186,6 +193,12 @@ class FrameConverter(Node):
         self.vehicle_odometry['qx'] = vehicle_odometry.q[1]
         self.vehicle_odometry['qy'] = vehicle_odometry.q[2]
         self.vehicle_odometry['qz'] = vehicle_odometry.q[3]
+
+    def trajectory_setpoint_callback(self, msg):
+        self.velocity_setpoint['timestamp'] = msg.timestamp
+        self.velocity_setpoint['vx'] = msg.velocity[0]
+        self.velocity_setpoint['vy'] = msg.velocity[1]
+        self.velocity_setpoint['vz'] = msg.velocity[2]
 
     def aruco_pose_camera_callback(self, aruco_pose_camera):
         self.aruco_pose_camera['timestamp'] = aruco_pose_camera.header.stamp.sec * 1e6 + aruco_pose_camera.header.stamp.nanosec * 1e-3

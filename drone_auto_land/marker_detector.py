@@ -17,7 +17,7 @@ class MarkerDetector(Node):
 
         self.bridge = CvBridge()
   
-        self.marker_size = 0.293
+        self.marker_size = 0.292
 
         # Load the camera matrix and distortion coefficients
         camera_matrix_file = 'src/drone_auto_land/drone_auto_land/camera_parameters/camera_matrix.txt'
@@ -65,6 +65,7 @@ class MarkerDetector(Node):
             if tvec is not None:
                 self.publish_aruco_pose(tvec[0], tvec[1], tvec[2])
                 aruco_pose_camera_text = f"ArUco Pose Camera: x={tvec[0]:.2f}, y={tvec[1]:.2f}, z={tvec[2]:.2f}"
+                self.get_logger().info(aruco_pose_camera_text)
                 cv.putText(cv_image, aruco_pose_camera_text, (10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
 
