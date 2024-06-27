@@ -94,7 +94,7 @@ class DataLogger(Node):
             'velocity_y': float(msg.velocity[1]),
             'velocity_z': float(msg.velocity[2]),
         }
-        self.save_data_trajectory('trajectory_setpoint.csv', data)
+        self.save_data_trajectory('velocity_setpoint.csv', data)
 
 
     def save_data_pose(self, filename, data):
@@ -105,7 +105,7 @@ class DataLogger(Node):
             writer = csv.writer(f)
 
             if not file_exists:
-                writer.writerow(['timestamp', 'position_x', 'position__y', 'position_z'])  # Write the header
+                writer.writerow(['timestamp', 'position_x', 'position_y', 'position_z'])  # Write the header
 
             # Write the data for the topic
             writer.writerow([data['timestamp'], data['position_x'], data['position_y'], data['position_z']])
