@@ -17,32 +17,16 @@ class MarkerDetector(Node):
 
         self.bridge = CvBridge()
 
-        self.marker_id = 29
-        self.embedded_marker_id = 33
-        self.marker_bits = np.array([[1, 1, 0, 0, 1, 0, 1],
-                                        [1, 1, 0, 1, 1, 0, 1],
-                                        [0, 1, 1, 1, 0, 1, 1],
-                                        [1, 0, 1, 1, 1, 0, 0],
-                                        [1, 0, 1, 1, 1, 1, 0],
-                                        [1, 1, 0, 1, 1, 0, 0],
-                                        [0, 1, 1, 0, 0, 0, 0]],dtype=np.uint8)
-        
-        self.embedded_marker_bits = np.array([[0, 0, 1, 1, 1, 0, 1],
-                                              [0, 0, 1, 0, 0, 0, 1],
-                                              [1, 0, 0, 0, 1, 0, 0],
-                                              [1, 0, 0, 1, 1, 1, 0],
-                                              [1, 1, 1, 0, 1, 0, 0],
-                                              [0, 0, 1, 0, 0, 1, 1],
-                                              [1, 0, 1, 1, 1, 0, 1]], dtype=np.uint8)
-
         self.marker_size = 0.291
-        self.embedded_marker_size = 0.033
+        self.h_fov = 0.9439860762623683
+        self.w_res = 640
 
         # Load the camera matrix and distortion coefficients
-        camera_matrix_file = 'src/drone_auto_land/drone_auto_land/camera_parameters/camera_matrix.txt'
-        distortion_coefficients_file = 'src/drone_auto_land/drone_auto_land/camera_parameters/camera_distortion_coefficients.txt'
+        camera_matrix_file = 'camera_parameters/camera_matrix.txt'
+        distortion_coefficients_file = 'camera_parameters/camera_distortion_coefficients.txt'
         self.camera_matrix = np.loadtxt(camera_matrix_file, delimiter=',')
         self.distortion_coeffs = np.loadtxt(distortion_coefficients_file, delimiter=',')
+        self.last_aruco_pose = None
 
     # Publish the pose of the detected ArUco marker
     def publish_aruco_pose(self, x, y, z):
@@ -53,9 +37,9 @@ class MarkerDetector(Node):
         pose.pose.position.z = z
         self.aruco_pose_camera_pub.publish(pose)
 
-    def image_binarization(self, img):
+    def image_binarization(self, img, threshold_block_size=7, threshold_constant=0):
         gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-        _, threshold_img = cv.threshold(gray, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
+        threshold_img = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, threshold_block_size, threshold_constant)
 
         return threshold_img
     
@@ -63,21 +47,30 @@ class MarkerDetector(Node):
         cosine_angle = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
         return np.arccos(cosine_angle)
     
-    def detect_corners(self, img, img_aux, min_area, max_area, min_angle, max_angle):
-        blurred = cv.GaussianBlur(img, (3, 3), 0)
-        lower_threshold = np.median(blurred)
-        upper_threshold = lower_threshold * 1.5
-        edges = cv.Canny(blurred, lower_threshold, upper_threshold)
+    def euclidean_distance(self, tvec):
+        return np.linalg.norm(tvec)
+    
+    def get_min_max_area(self, euc_distance, threshold_distance = 200):
+        width_scene = 2 * euc_distance * np.tan(self.h_fov / 2)
+        width_marker = self.marker_size * self.w_res/width_scene
+        min_area = (width_marker ** 2)  - threshold_distance
+        max_area = (width_marker ** 2)  + threshold_distance
+        return min_area, max_area
 
-        contours, _ = cv.findContours(edges.copy(), cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+    
+    def detect_quadrilateral(self, img, min_area=100, max_area=100000, min_angle=0.785, max_angle=2.356):
+        blurred_img = cv.GaussianBlur(img, (3, 3), 0)
 
-        potential_marker_corners = []
+        contours, _ = cv.findContours(blurred_img, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+
+        potential_marker_corners = []   
         for contour in contours:
             area = cv.contourArea(contour)
             precision = 0.04
             epsilon = precision * cv.arcLength(contour, True)
             approx = cv.approxPolyDP(contour, epsilon, True)
-            if (min_area < area < max_area and len(approx) == 4):
+            if (min_area < area < max_area and len(approx) == 4 and cv.isContourConvex(approx)):
+
                 approx = approx.reshape((-1, 2)).astype(np.float32)
                 angles = []
                 for i in range(4):
@@ -85,42 +78,56 @@ class MarkerDetector(Node):
                     v2 = approx[(i+2)%4] - approx[(i+1)%4]
                     angles.append(self.angle_vector(v1, v2))
                 
-                if (all(angle > min_angle and angle < max_angle for angle in angles) or True):
+                if (all(angle > min_angle and angle < max_angle for angle in angles)):
                     potential_marker_corners.append(approx)
-                    cv.drawContours(img_aux, [contour], -1, (0, 255, 0), 3)
-                    cv.putText(img_aux, f"{area:.2f}", tuple(map(int, approx[0])), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
         return potential_marker_corners
     
     def get_bits(self, img, corners, perspectiveRemoveIgnoredMarginPerCell=0.13):
-        dst_pts = np.array([[0, 0], [299, 0], [299, 299], [0, 299]], dtype=np.float32)
+        dst_pts = np.array([[0, 0], [49, 0], [49, 49], [0, 49]], dtype=np.float32)
 
         corners = corners.astype(np.float32)
         M = cv.getPerspectiveTransform(corners, dst_pts)
-        warped = cv.warpPerspective(img, M, (300, 300))
+        warped = cv.warpPerspective(img, M, (299, 299))
         
-        gray = cv.cvtColor(warped, cv.COLOR_BGR2GRAY)
+        gray_img = cv.cvtColor(warped, cv.COLOR_BGR2GRAY)
 
         #Apply otsu thresholding with gaussian filtering
-        gray = cv.GaussianBlur(gray, (3, 3), 0)
-        _, threshold_image = cv.threshold(gray, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
+        blured_img = cv.GaussianBlur(gray_img, (3, 3), 0)
+        _, threshold_image = cv.threshold(blured_img, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
 
         # Perform marker detection
-        cell_size = threshold_image.shape[0] // 9
+        cell_size = threshold_image.shape[0] // 7
         cell_margin = int(cell_size * perspectiveRemoveIgnoredMarginPerCell)
-        bits = np.zeros((9,9), dtype=np.uint8)
+        bits = np.zeros((7,7), dtype=np.uint8)
 
-        for y in range(9):
-            for x in range(9):
-                cell = threshold_image[y*cell_size:(y+1)*cell_size, x*cell_size:(x+1)*cell_size]
+        for x in range(7):
+            for y in range(7):
+                cell = threshold_image[x*cell_size:(y+1)*cell_size, y*cell_size:(y+1)*cell_size]
                 cell = cell[cell_margin:cell_size-cell_margin, cell_margin:cell_size-cell_margin]
                 if np.mean(cell) > 127:
-                    bits[y,x] = 1
+                    bits[x,y] = 1
         return bits
     
-    def verify_potential_marker(self, bits, maxErroneousBitsInBorderRate, maxErroneousBitsInMarkerRate):
+    def hamming_distance(self, bits):
+        marker_id_100 = [
+            [1, 0, 0, 0, 0],
+            [1, 0, 1, 1, 1],
+            [0, 1, 0, 0, 1],
+            [1, 0, 1, 1, 1],
+            [1, 0, 0, 0, 0]
+        ]
 
-        marker_id = None
+        sum = 0
+
+        for i in range(5):
+            for j in range(5):
+                sum += bits[i, j] ^ marker_id_100[i][j]
+
+        return sum
+                
+    
+    def verify_potential_marker(self, bits, maxErroneousBitsInBorderRate, maxErroneousBitsInMarkerRate):
 
         total_bits = bits.shape[0] * bits.shape[1]
 
@@ -134,30 +141,13 @@ class MarkerDetector(Node):
         if erroneous_border_bits > max_erroneous_bits_border:
             return False, None
         
-        #Check if the marker bits are correct
-        marker_bits = bits[1:8, 1:8]
-        erroneous_marker_bits = np.sum(marker_bits != self.marker_bits)
-        erroneous_embedded_marker_bits = np.sum(marker_bits != self.embedded_marker_bits)
+        marker_bits = bits[1:6, 1:6]
 
-        #Check if the marker bits are correct in all rotations
-        for _ in range(4):
-            if erroneous_marker_bits <= max_erroneous_bits_marker:
-                marker_id = self.marker_id
-                break
-            if erroneous_embedded_marker_bits <= max_erroneous_bits_marker:
-                marker_id = self.embedded_marker_id
-                break
+        # Check if the marker bits are correct
+        erroneous_marker_bits = self.hamming_distance(marker_bits)
 
-            marker_bits = np.rot90(marker_bits)
-            erroneous_marker_bits = np.sum(marker_bits != self.marker_bits)
-            erroneous_embedded_marker_bits = np.sum(marker_bits != self.embedded_marker_bits)
-
-
-        return marker_id is not None, marker_id
-        
-
-        
-
+        if erroneous_marker_bits <= max_erroneous_bits_marker:
+            return True
     
     def estimate_pose(self, corners, marker_size):
         ret = cv.aruco.estimatePoseSingleMarkers(corners, marker_size, self.camera_matrix, self.distortion_coeffs)
@@ -190,19 +180,12 @@ class MarkerDetector(Node):
 
         marker_corners = [marker_corners[i] for i in keep_indices]
 
-        marker_ids = [marker_ids[i] for i in keep_indices]
-
-        return marker_corners, marker_ids
+        return marker_corners
     
-    def draw_markers(self, img, marker_corners, marker_ids):
+    def draw_markers(self, img, marker_corners):
         for i in range(len(marker_corners)):
             corners = marker_corners[i][0].astype(np.int32)
             cv.polylines(img, [corners], True, (0, 255, 0), 2)
-
-            bottom_right_corner_id = np.argmax(np.sum(corners, axis=1))
-
-            text_position = tuple(corners[bottom_right_corner_id])
-            cv.putText(img, str(marker_ids[i][0]), text_position, cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
         return img
 
@@ -212,8 +195,13 @@ class MarkerDetector(Node):
         cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
         undistorted_img = cv.undistort(cv_image, self.camera_matrix, self.distortion_coeffs)
         undistorted_img_bin = self.image_binarization(undistorted_img)
-        undistorted_img_copy = undistorted_img.copy()
-        potential_marker_corners = self.detect_corners(undistorted_img_bin, undistorted_img_copy, 100, 1000000, 1.40,1.75)
+        potential_marker_corners = []
+        if self.last_aruco_pose is not None:
+            euc_distance = self.euclidean_distance(self.last_aruco_pose)
+            min_area, max_area = self.get_min_max_area(euc_distance)
+            potential_marker_corners = self.detect_quadrilateral(undistorted_img_bin, min_area, max_area, 1.40, 1.75)
+        else:
+            potential_marker_corners = self.detect_quadrilateral(undistorted_img_bin, 100, 1000000, 1.40, 1.75)
 
         marker_ids = []
         marker_corners = []
@@ -222,31 +210,25 @@ class MarkerDetector(Node):
 
             for corners in potential_marker_corners:
                 potential_marker_bits = self.get_bits(undistorted_img, corners)
-                is_marker, marker_id = self.verify_potential_marker(potential_marker_bits, 0.05, 0.05)
+                is_marker = self.verify_potential_marker(potential_marker_bits, 0.1, 0.1)
                 if is_marker:
-                    marker_ids.append(marker_id)
                     marker_corners.append(corners)
-            marker_corners, marker_ids = self.remove_inner_markers(marker_corners, marker_ids, 5, 20)
-            if (len(marker_ids) > 0):
+            marker_corners = self.remove_inner_markers(marker_corners, 5, 20)
+            if (len(marker_corners) > 0):
                 marker_corners = tuple(np.array([corner], dtype=np.float32) for corner in marker_corners)
-                marker_ids = np.array(marker_ids, dtype=np.int32).reshape(-1, 1)
 
-                undistorted_img = self.draw_markers(undistorted_img, marker_corners, marker_ids)
+                undistorted_img = self.draw_markers(undistorted_img, marker_corners)
 
                 tvec = None
-                match len(marker_ids):
+                match len(marker_corners):
                     case 1:
-                        tvec = self.estimate_pose(marker_corners, (self.marker_size if marker_ids[0][0] == self.marker_id else self.embedded_marker_size))
-                    case 2:
-                        if marker_ids[0][0] == self.marker_id:
-                            tvec = self.estimate_pose([marker_corners[0]], self.marker_size)
-                        else:
-                            tvec = self.estimate_pose([marker_corners[1]], self.embedded_marker_size)
+                        tvec = self.estimate_pose(marker_corners, self.marker_size)
                     case _:
-                        self.get_logger().info("More than 2 markers detected")
+                        self.get_logger().info("More than 1 marker detected")
 
                 if tvec is not None:
                     self.publish_aruco_pose(tvec[0], tvec[1], tvec[2])
+                    self.last_aruco_pose = tvec
 
                     aruco_pose_camera_text = f"ArUco Pose Camera: x={tvec[0]:.2f}, y={tvec[1]:.2f}, z={tvec[2]:.2f}"
                     cv.putText(undistorted_img, aruco_pose_camera_text, (10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
