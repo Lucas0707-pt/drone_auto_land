@@ -53,8 +53,9 @@ class OffboardLandingController(Node):
         self.status_sub = self.create_subscription(
             VehicleStatus, '/fmu/out/vehicle_status', self.vehicle_status_callback, qos_profile)
         
-        self.aruco_pose_camera_subscriber = self.create_subscription(
-            PoseStamped, '/aruco_pose_camera', self.aruco_pose_camera_callback, 10)
+        self.aruco_pose_drone_subscriber = self.create_subscription(
+            PoseStamped, 'aruco_pose_drone', self.aruco_pose_drone_callback, 10)
+        
         # Initialize variables
         self.land_command_sent = False
         self.vehicle_odometry = VehicleOdometry()
@@ -107,12 +108,12 @@ class OffboardLandingController(Node):
         self.desired_y = aruco_pose_local.pose.position.y
         self.desired_z = aruco_pose_local.pose.position.z
 
-    def aruco_pose_camera_callback(self, aruco_pose_camera):
-        """Callback function for aruco_pose_camera topic subscriber."""
-        self.aruco_pose_camera = aruco_pose_camera
-        self.current_camera_x = aruco_pose_camera.pose.position.x
-        self.current_camera_y = aruco_pose_camera.pose.position.y
-        self.current_camera_z = aruco_pose_camera.pose.position.z
+    def aruco_pose_drone_callback(self, aruco_pose_drone):
+        """Callback function for aruco_pose_drone topic subscriber."""
+        self.aruco_pose_drone = aruco_pose_drone
+        self.current_camera_x = aruco_pose_drone.pose.position.x
+        self.current_camera_y = aruco_pose_drone.pose.position.y
+        self.current_camera_z = aruco_pose_drone.pose.position.z
 
         # Calculate velocity setpoints
         self.vx = -self.k * self.current_camera_y
@@ -210,12 +211,6 @@ class OffboardLandingController(Node):
                 self.get_logger().info("[C] Current camera position x=%.2fm, y=%.2fm, z=%.2f" % (self.current_camera_x, self.current_camera_y, self.current_camera_z))
                 self.get_logger().info("[C] Control velocity x=%.2fm/s, y=%.2fm/s" % (self.vx, self.vy))
                 
-                # # Generate linear trajectory for correction
-                # waypoints = self.generate_linear_trajectory(self.current_x, self.current_y, self.desired_x, self.desired_y, self.current_z, self.current_z, num_points=2)
-                
-                # # Publish trajectory setpoints
-                # for waypoint in waypoints:
-                #     self.publish_trajectory_setpoint(waypoint[0], waypoint[1], waypoint[2])
                 self.publish_velocity_setpoint(self.vx, self.vy, 0.0)
                 self.setpoint_published = False
 
@@ -250,12 +245,7 @@ class OffboardLandingController(Node):
 
             self.get_logger().info("[D] Current position x=%.2fm, y=%.2fm, z=%.2f" % (self.current_x, self.current_y, self.current_camera_z))
             self.get_logger().info("[D] Descending to position x=%.2fm, y=%.2fm, z=%.2f" % (self.current_x, self.current_y, self.camera_goal_z))                       
-            ## Generate  z = start_z + t * (end_z - start_z)te linear trajectory for descent
-            # waypoints = self.generate_linear_trajectory(self.current_x, self.current_y, self.desired_x, self.desired_y, self.current_z, self.current_z + self.descent_height, num_points=2)
-            
-            # # Publish trajectory setpoints
-            # for waypoint in waypoints:
-            #     self.publish_trajectory_setpoint(waypoint[0], waypoint[1], waypoint[2])
+        
             self.setpoint_published = True
         
         error_z = self.current_camera_z - self.camera_goal_z
@@ -277,17 +267,6 @@ class OffboardLandingController(Node):
             # Reset setpoint_published flag
             self.setpoint_published = False      
 
-    def generate_linear_trajectory(self, start_x, start_y, end_x, end_y, start_z, end_z, num_points):
-        """Generate a linear trajectory."""
-        trajectory = []
-        for i in range(num_points):
-            t = i / (num_points - 1)
-            x = start_x + t * (end_x - start_x)
-            y = start_y + t * (end_y - start_y)
-            z = start_z + t * (end_z - start_z)
-            trajectory.append((x, y, z))
-        return trajectory
-
     def distance_to_desired_position(self, x1, y1, x2, y2):
         """Calculate the Euclidean distance between two points."""
         return np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
@@ -301,17 +280,6 @@ class OffboardLandingController(Node):
         msg.position = position_array
         msg.timestamp = int(self.get_clock().now().nanoseconds / 1000)
         self.trajectory_setpoint_publisher.publish(msg)
-
-    def generate_linear_trajectory(self, start_x, start_y, end_x, end_y, start_z, end_z, num_points):
-        """Generate a linear trajectory."""
-        trajectory = []
-        for i in range(num_points):
-            t = i / (num_points - 1)
-            x = start_x + t * (end_x - start_x)
-            y = start_y + t * (end_y - start_y)
-            z = start_z + t * (end_z - start_z)
-            trajectory.append((x, y, z))
-        return trajectory
 
     def distance_to_desired_position(self, x1, y1, x2, y2):
         """Calculate the Euclidean distance between two points."""
