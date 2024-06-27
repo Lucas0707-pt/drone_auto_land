@@ -41,6 +41,9 @@ class FrameConverter(Node):
         self.vehicle_odometry_sub = self.create_subscription(
             VehicleOdometry, '/fmu/out/vehicle_odometry', self.vehicle_odometry_callback, qos_profile)
         
+        self.aruco_pose_drone_pub = self.create_publisher(
+            PoseStamped, 'aruco_pose_drone', 10)
+        
         self.aruco_pose_local_pub = self.create_publisher(
             PoseStamped, 'aruco_pose_local', 10)
         
@@ -126,6 +129,10 @@ class FrameConverter(Node):
             if abs(timestamp_diff) < self.acceptable_timestamp_diff:
                 aruco_pose_message = PoseStamped()
                 aruco_pose_drone = self.convert_cam2drone()
+                aruco_pose_message.pose.position.x = aruco_pose_drone[0]
+                aruco_pose_message.pose.position.y = aruco_pose_drone[1]
+                aruco_pose_message.pose.position.z = aruco_pose_drone[2]
+                self.aruco_pose_drone_pub.publish(aruco_pose_message)
                 self.tvec_D_L = np.array([self.vehicle_odometry['x'], self.vehicle_odometry['y'], self.vehicle_odometry['z']])
                 self.rvec_D_L = self.convert_quat2rot()
                 self.convert_drone2local(aruco_pose_drone)
