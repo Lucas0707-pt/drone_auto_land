@@ -74,6 +74,13 @@ class FrameConverter(Node):
             'qy': None,
             'qz': None
         }
+        
+        self.velocity_setpoint = {
+            'timestamp': None,
+            'vx': None,
+            'vy': None,
+            'vz': None
+        }
 
         self.tvec_C_D = np.array([0.05, 0, 0.04])
         self.rvec_C_D = np.array([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
@@ -108,13 +115,14 @@ class FrameConverter(Node):
         if (self.aruco_pose_camera['x'] is not None and self.aruco_pose_local['x'] is not None and self.vehicle_odometry['x'] is not None):
             aruco_pose_camera_text = f"ArUco Pose Camera: x={self.aruco_pose_camera['x']:.2f}, y={self.aruco_pose_camera['y']:.2f}, z={self.aruco_pose_camera['z']:.2f}"
             aruco_pose_local_text = f"ArUco Pose Local: x={self.aruco_pose_local['x']:.2f}, y={self.aruco_pose_local['y']:.2f}, z={self.aruco_pose_local['z']:.2f}"
-            vehicle_odometry_text = f"Vehicle Odometry: x={self.vehicle_odometry['x']:.2f}, y={self.vehicle_odometry['y']:.2f}, z={self.vehicle_odometry['z']:.2f}"
+            velocity_setpoint_text = f"Velocity Setpoint: vx={self.velocity_setpoint['vx']:.2f}, vy={self.velocity_setpoint['vy']:.2f}, vz={self.velocity_setpoint['vz']:.2f}"
+            vehicle_odometry_text = f"Drone Position: x={self.vehicle_odometry['x']:.2f}, y={self.vehicle_odometry['y']:.2f}, z={self.vehicle_odometry['z']:.2f}"
+
 
             cv.putText(cv_image, aruco_pose_camera_text, (10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
             cv.putText(cv_image, aruco_pose_local_text, (10, 50), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-            cv.putText(cv_image, vehicle_odometry_text, (10, 70), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-
-        #cv_image = self.draw_frames(cv_image)
+            cv.putText(cv_image, velocity_setpoint_text, (10, 70), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+            cv.putText(cv_image, vehicle_odometry_text, (10, 90), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
         if self.record:
             self.out.write(cv_image)
@@ -127,19 +135,20 @@ class FrameConverter(Node):
             timestamp_diff = self.vehicle_odometry['timestamp'] - self.aruco_pose_camera['timestamp']
             #self.get_logger().info('Timestamp difference: {}'.format(timestamp_diff))
             if abs(timestamp_diff) < self.acceptable_timestamp_diff:
-                aruco_pose_message = PoseStamped()
+                aruco_pose_drone_message = PoseStamped()
+                aruco_pose_local_message = PoseStamped()
                 aruco_pose_drone = self.convert_cam2drone()
-                aruco_pose_message.pose.position.x = aruco_pose_drone[0]
-                aruco_pose_message.pose.position.y = aruco_pose_drone[1]
-                aruco_pose_message.pose.position.z = aruco_pose_drone[2]
-                self.aruco_pose_drone_pub.publish(aruco_pose_message)
+                aruco_pose_drone_message.pose.position.x = aruco_pose_drone[0]
+                aruco_pose_drone_message.pose.position.y = aruco_pose_drone[1]
+                aruco_pose_drone_message.pose.position.z = aruco_pose_drone[2]
+                self.aruco_pose_drone_pub.publish(aruco_pose_drone_message)
                 self.tvec_D_L = np.array([self.vehicle_odometry['x'], self.vehicle_odometry['y'], self.vehicle_odometry['z']])
                 self.rvec_D_L = self.convert_quat2rot()
                 self.convert_drone2local(aruco_pose_drone)
-                aruco_pose_message.pose.position.x = self.aruco_pose_local['x']
-                aruco_pose_message.pose.position.y = self.aruco_pose_local['y']
-                aruco_pose_message.pose.position.z = self.aruco_pose_local['z']
-                self.aruco_pose_local_pub.publish(aruco_pose_message)
+                aruco_pose_local_message.pose.position.x = self.aruco_pose_local['x']
+                aruco_pose_local_message.pose.position.y = self.aruco_pose_local['y']
+                aruco_pose_local_message.pose.position.z = self.aruco_pose_local['z']
+                self.aruco_pose_local_pub.publish(aruco_pose_local_message)
 
 
     def convert_quat2rot(self):
