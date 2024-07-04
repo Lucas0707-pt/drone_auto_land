@@ -53,7 +53,7 @@ class OffboardLandingController(Node):
             PoseStamped, '/aruco_pose_local', self.aruco_pose_local_callback, 10)
         
         self.aruco_pose_camera_subscriber = self.create_subscription(
-            PoseStamped, '/aruco_pose_camera', self.aruco_pose_camera_callback, 10)
+            PoseStamped, '/aruco_pose_drone', self.aruco_pose_camera_callback, 10)
         
         self.status_sub = self.create_subscription(
             VehicleStatus, '/fmu/out/vehicle_status', self.vehicle_status_callback, qos_profile)
@@ -69,7 +69,7 @@ class OffboardLandingController(Node):
         self.desired_z = 0.0
         self.current_camera_z = 0.0
         self.descent_height = 0.2  # Height to descend in z
-        self.land_dist_th = 0.5 # Height to land
+        self.land_dist_th = 0.7 # Height to land
         self.goal_z = 0.0
         self.camera_goal_z = 0.0
         self.error_threshold_z = 0.05  # Threshold for z error
@@ -115,8 +115,8 @@ class OffboardLandingController(Node):
         self.current_camera_z = aruco_pose_camera.pose.position.z
 
         # Calculate velocity setpoints
-        self.vx = -self.k * self.current_camera_y
-        self.vy = self.k * self.current_camera_x
+        self.vx = self.k * self.current_camera_x
+        self.vy = self.k * self.current_camera_y
 
     def publish_offboard_control_heartbeat_signal(self):
         """Publish the offboard control mode."""
@@ -218,7 +218,7 @@ class OffboardLandingController(Node):
                 self.setpoint_published = False
 
             # Condition to switch to descent state
-            if self.distance_to_desired_position(self.current_x, self.current_y, self.desired_x, self.desired_y) < self.error_threshold_xz:
+            if current_xelf.distance_to_desired_position(self.current_x, self.current_y, self.desired_x, self.desired_y) < self.error_threshold_xz:
                 self.get_logger().info("[C] Horizontal Error = %.2fm" % (self.distance_to_desired_position(self.current_x, self.current_y, self.desired_x, self.desired_y)))
                 self.state = "Descent"
                 self.setpoint_published = False
