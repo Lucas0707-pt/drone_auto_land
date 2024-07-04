@@ -82,6 +82,7 @@ class OffboardLandingController(Node):
 
         # Flag to track if setpoint has been published
         self.setpoint_published = False
+        self.camera_pose_updated = False
 
         # Gain associated with velocity value
         self.k = 0.5
@@ -215,13 +216,15 @@ class OffboardLandingController(Node):
                 # for waypoint in waypoints:
                 #     self.publish_trajectory_setpoint(waypoint[0], waypoint[1], waypoint[2])
                 self.publish_velocity_setpoint(self.vx, self.vy, 0.0)
+                self.current_camera_x = None
+                self.current_camera_y = None
+                self.current_camera_z = None
                 self.setpoint_published = False
 
             # Condition to switch to descent state
             if self.distance_to_desired_position(self.current_x, self.current_y, self.desired_x, self.desired_y) < self.error_threshold_xz:
                 self.get_logger().info("[C] Horizontal Error = %.2fm" % (self.distance_to_desired_position(self.current_x, self.current_y, self.desired_x, self.desired_y)))
                 self.state = "Descent"
-                self.setpoint_published = False
 
         else:
             self.get_logger().info("Vehicle not in offboard mode.")
@@ -255,6 +258,9 @@ class OffboardLandingController(Node):
             # for waypoint in waypoints:
             #     self.publish_trajectory_setpoint(waypoint[0], waypoint[1], waypoint[2])
             self.setpoint_published = True
+            self.current_camera_x = None
+            self.current_camera_y = None
+            self.current_camera_z = None
         
         error_z = self.current_camera_z - self.camera_goal_z
 
