@@ -6,7 +6,7 @@ from datetime import datetime
 import pytz
 
 # Define the log directory 
-log_dir = '2024_6_27_12_38_13/'
+log_dir = '2024_7_4_18_25_14/'
 
 # Extract year, month, day, hour, minute, and second from log directory
 log_components = log_dir.rstrip('/').split('_')
