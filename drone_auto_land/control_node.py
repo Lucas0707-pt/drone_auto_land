@@ -91,7 +91,7 @@ class OffboardLandingController(Node):
         self.camera_pose_updated = False
 
         # Gain associated with velocity value
-        self.k = 0.5
+        self.kxy = 0.5
         self.kz = 1.0
 
         # Create a timer to publish control commands
@@ -122,8 +122,8 @@ class OffboardLandingController(Node):
         self.current_camera_z = aruco_pose_camera.pose.position.z
 
         # Calculate velocity setpoints
-        self.vx = self.k * self.current_camera_x
-        self.vy = self.k * self.current_camera_y
+        self.vx = self.kxy * self.current_camera_x
+        self.vy = self.kxy * self.current_camera_y
 
     def publish_offboard_control_heartbeat_signal(self):
         """Publish the offboard control mode."""
