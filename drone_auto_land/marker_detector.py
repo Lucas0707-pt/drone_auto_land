@@ -4,7 +4,6 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge
 import cv2 as cv
 import numpy as np
-import tf
 from geometry_msgs.msg import PoseStamped
 
 class MarkerDetector(Node):
@@ -14,13 +13,13 @@ class MarkerDetector(Node):
         # Create publishers and subscribers
         self.camera_image_sub = self.create_subscription(Image, 'camera', self.image_callback, 10)
         self.aruco_image_pub = self.create_publisher(Image, 'aruco_image_aux', 10)
-        self.aruco_pose_camera_pub = self.create_publisher(PoseStamped, 'aruco_pose_camera', 10)
+        self.pose_marker_to_camera_pub = self.create_publisher(PoseStamped, 'pose_marker_to_camera', 10)
 
         self.bridge = CvBridge()
 
-        self.marker_id = 100
+        self.marker_id = 29
         self.embedded_marker_id = 33
-        self.marker_size = 0.201
+        self.marker_size = 0.292
         self.embedded_marker_size = 0.033
 
         # Load the camera matrix and distortion ro
@@ -28,6 +27,13 @@ class MarkerDetector(Node):
         distortion_coefficients_file = 'src/drone_auto_land/drone_auto_land/camera_parameters/camera_distortion_coefficients.txt'
         self.camera_matrix = np.loadtxt(camera_matrix_file, delimiter=',')
         self.distortion_coeffs = np.loadtxt(distortion_coefficients_file, delimiter=',')
+
+    def convert_rot2quat(self, rotation_matrix):
+        qw = np.sqrt(1 + rotation_matrix[0, 0] + rotation_matrix[1, 1] + rotation_matrix[2, 2]) / 2
+        qx = (rotation_matrix[2, 1] - rotation_matrix[1, 2]) / (4 * qw)
+        qy = (rotation_matrix[0, 2] - rotation_matrix[2, 0]) / (4 * qw)
+        qz = (rotation_matrix[1, 0] - rotation_matrix[0, 1]) / (4 * qw)
+        return np.array([qx, qy, qz, qw])
 
     # Publish the pose of the detected ArUco marker
     def publish_aruco_pose(self, rvec, tvec):
@@ -37,20 +43,16 @@ class MarkerDetector(Node):
         pose.pose.position.y = tvec[1]
         pose.pose.position.z = tvec[2]
 
-        rotation_matrix = np.array([[0, 0, 0, 0],
-                            [0, 0, 0, 0],
-                            [0, 0, 0, 0],
-                            [0, 0, 0, 1]],
-                            dtype=float)
-        
-        rotation_matrix[:3, :3], _ = cv.Rodrigues(rvec)
-        quaternion = tf.transformations.quaternion_from_matrix(rotation_matrix)
+        rotation_matrix = np.eye(3, dtype=float)
+        rotation_matrix, _ = cv.Rodrigues(rvec)
+        quaternion = self.convert_rot2quat(rotation_matrix)
+
         pose.pose.orientation.x = quaternion[0]
         pose.pose.orientation.y = quaternion[1]
         pose.pose.orientation.z = quaternion[2]
         pose.pose.orientation.w = quaternion[3]
 
-        self.aruco_pose_camera_pub.publish(pose)
+        self.pose_marker_to_camera_pub.publish(pose)
 
     def estimate_pose(self, corners, marker_size):
         ret = cv.aruco.estimatePoseSingleMarkers(corners, marker_size, self.camera_matrix, self.distortion_coeffs)
@@ -65,7 +67,7 @@ class MarkerDetector(Node):
         gray = cv.GaussianBlur(gray, (3, 3), 0)
 
         # Perform marker detection
-        aruco_dict = cv.aruco.Dictionary_get(cv.aruco.DICT_ARUCO_ORIGINAL)
+        aruco_dict = cv.aruco.Dictionary_get(cv.aruco.DICT_7X7_1000)
         parameters = cv.aruco.DetectorParameters_create()
         corners, ids, _ = cv.aruco.detectMarkers(gray, aruco_dict, parameters=parameters)
 
@@ -97,9 +99,6 @@ class MarkerDetector(Node):
             
             if tvec is not None:
                 self.publish_aruco_pose(rvec, tvec)
-
-            aruco_pose_camera_text = f"ArUco Pose Camera: x={tvec[0]:.2f}, y={tvec[1]:.2f}, z={tvec[2]:.2f}"
-            cv.putText(cv_image, aruco_pose_camera_text, (10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
         # Publish the image with the detected markers
         self.aruco_image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, encoding='bgr8'))

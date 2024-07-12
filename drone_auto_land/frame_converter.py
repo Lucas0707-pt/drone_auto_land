@@ -85,7 +85,7 @@ class FrameConverter(Node):
 
     def aruco_image_callback(self, msg):
         cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-        if (self.pose_marker_to_camera['x'] is not None and self.aruco_pose_local['x'] is not None and self.vehicle_odometry['x'] is not None):
+        if (self.pose_marker_to_camera['x'] is not None and self.pose_drone_to_marker['x'] is not None and self.vehicle_odometry['x'] is not None):
             pose_marker_to_camera_text = f"Pose Marker to Camera: x={self.pose_marker_to_camera['x']:.2f}, y={self.pose_marker_to_camera['y']:.2f}, z={self.pose_marker_to_camera['z']:.2f}"
             pose_drone_to_marker_text = f"Pose Drone to Marker: x={self.pose_drone_to_marker['x']:.2f}, y={self.pose_drone_to_marker['y']:.2f}, z={self.pose_drone_to_marker['z']:.2f}"
             vehicle_odometry_text = f"Vehicle Odometry: x={self.vehicle_odometry['x']:.2f}, y={self.vehicle_odometry['y']:.2f}, z={self.vehicle_odometry['z']:.2f}"
@@ -146,9 +146,9 @@ class FrameConverter(Node):
                 self.pose_drone_to_marker['z'] = pose_camera_to_marker[2]
 
                 pose_drone_to_marker.header.stamp = self.get_clock().now().to_msg()
-                pose_drone_to_marker.pose.position.x = pose_camera_to_marker['x']
-                pose_drone_to_marker.pose.position.y = pose_camera_to_marker['y']
-                pose_drone_to_marker.pose.position.z = pose_camera_to_marker['z']
+                pose_drone_to_marker.pose.position.x = self.pose_drone_to_marker['x']
+                pose_drone_to_marker.pose.position.y = self.pose_drone_to_marker['y']
+                pose_drone_to_marker.pose.position.z = self.pose_drone_to_marker['z']
                 self.pose_drone_to_marker_pub.publish(pose_drone_to_marker)
 
     def vehicle_odometry_callback(self, vehicle_odometry):
