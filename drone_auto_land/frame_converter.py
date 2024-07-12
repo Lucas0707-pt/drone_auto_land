@@ -1,7 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
-from px4_msgs.msg import VehicleOdometry, TrajectorySetpoint
+from px4_msgs.msg import VehicleOdometry
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import PoseStamped
 import numpy as np
@@ -14,7 +14,6 @@ import datetime
 class FrameConverter(Node):
     def __init__(self):
         super().__init__('frame_converter')
-
         self.declare_parameter('record', 0)
         self.record = bool(self.get_parameter('record').get_parameter_value().integer_value)
 
@@ -23,7 +22,7 @@ class FrameConverter(Node):
             fourcc = cv.VideoWriter_fourcc(*'XVID')
             now = datetime.datetime.now()
             filename = f'src/drone_auto_land/videos/{now.year}_{now.month}_{now.day}_{now.hour}_{now.minute}_{now.second}.avi'
-            self.out = cv.VideoWriter(filename, fourcc, 10.0, (640, 480))
+            self.out = cv.VideoWriter(filename, fourcc, 30.0, (640, 480))
 
         # Configure QoS profile for publishing and subscribing
         qos_profile = QoSProfile(
@@ -35,33 +34,31 @@ class FrameConverter(Node):
 
         self.bridge = CvBridge()
 
-        self.aruco_pose_camera_sub = self.create_subscription(
-            PoseStamped, 'aruco_pose_camera', self.aruco_pose_camera_callback, 10)
+        self.pose_marker_to_camera_sub = self.create_subscription(
+            PoseStamped, 'pose_marker_to_camera', self.pose_marker_to_camera_callback, 10)
         
         self.vehicle_odometry_sub = self.create_subscription(
             VehicleOdometry, '/fmu/out/vehicle_odometry', self.vehicle_odometry_callback, qos_profile)
         
-        self.trajectory_setpoint_sub = self.create_subscription(
-            TrajectorySetpoint, '/fmu/in/trajectory_setpoint', self.trajectory_setpoint_callback, qos_profile)
-        
-        self.aruco_pose_drone_pub = self.create_publisher(
-            PoseStamped, 'aruco_pose_drone', 10)
-        
-        self.aruco_pose_local_pub = self.create_publisher(
-            PoseStamped, 'aruco_pose_local', 10)
+        self.pose_drone_to_marker_pub = self.create_publisher(
+            PoseStamped, 'pose_drone_to_marker', 10)
         
         self.aruco_image_sub = self.create_subscription(Image, 'aruco_image_aux', self.aruco_image_callback, 10)
 
         self.aruco_image_pub = self.create_publisher(Image, 'aruco_image', 10)
 
-        self.aruco_pose_camera = {
+        self.pose_marker_to_camera = {
             'timestamp': None,
             'x': None,
             'y': None,
-            'z': None
+            'z': None,
+            'qx': None,
+            'qy': None,
+            'qz': None,
+            'qw': None
         }
 
-        self.aruco_pose_local = {
+        self.pose_drone_to_marker = {
             'x': None,
             'y': None,
             'z': None
@@ -75,61 +72,27 @@ class FrameConverter(Node):
             'qw': None,
             'qx': None,
             'qy': None,
-            'qz': None,
-            'vx': None,
-            'vy': None,
-            'vz': None
-        }
-        
-        self.velocity_setpoint = {
-            'timestamp': None,
-            'vx': None,
-            'vy': None,
-            'vz': None
+            'qz': None
         }
 
-        self.tvec_C_D = np.array([0.05, 0, 0.04])
-        self.rvec_C_D = np.array([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
+        self.tvec_D_C = np.array([0, 0.05, -0.04])
+        self.rvec_D_C = np.array([[0.0, 1.0, 0.0], [-1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
 
-        
-        self.tvec_D_L = None
-        self.rvec_D_L = None
-
+        self.tvec_C_M = None
+        self.rvec_C_M = None
 
         self.acceptable_timestamp_diff = 3 * 1e5
 
-    def draw_frames(self, cv_image):
-        # Define the size of the frame
-        frame_size = 50
-
-        # Draw the camera frame (in red)
-        cv.arrowedLine(cv_image, (50, 50), (50 + frame_size, 50), (0, 0, 255), 2)
-        cv.arrowedLine(cv_image, (50, 50), (50, 50 - frame_size), (0, 0, 255), 2)
-
-        # Draw the drone frame (in green)
-        cv.arrowedLine(cv_image, (150, 50), (150 + frame_size, 50), (0, 255, 0), 2)
-        cv.arrowedLine(cv_image, (150, 50), (150, 50 - frame_size), (0, 255, 0), 2)
-
-        # Draw the local frame (in blue)
-        cv.arrowedLine(cv_image, (250, 50), (250 + frame_size, 50), (255, 0, 0), 2)
-        cv.arrowedLine(cv_image, (250, 50), (250, 50 - frame_size), (255, 0, 0), 2)
-
-        return cv_image
-
     def aruco_image_callback(self, msg):
         cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-        if (self.aruco_pose_camera['x'] is not None and self.aruco_pose_local['x'] is not None and self.vehicle_odometry['x'] is not None):
-            aruco_pose_camera_text = f"ArUco Pose Camera: x={self.aruco_pose_camera['x']:.2f}, y={self.aruco_pose_camera['y']:.2f}, z={self.aruco_pose_camera['z']:.2f}"
-            aruco_pose_local_text = f"ArUco Pose Local: x={self.aruco_pose_local['x']:.2f}, y={self.aruco_pose_local['y']:.2f}, z={self.aruco_pose_local['z']:.2f}"
-            drone_position_text = f"Drone Position: x={self.vehicle_odometry['x']:.2f}, y={self.vehicle_odometry['y']:.2f}, z={self.vehicle_odometry['z']:.2f}"
-            drone_velocity_text = f"Drone Velocity: vx={self.vehicle_odometry['vx']:.2f}, vy={self.vehicle_odometry['vy']:.2f}, vz={self.vehicle_odometry['vz']:.2f}"
-            velocity_setpoint_text = f"Velocity Setpoint: vx={self.velocity_setpoint['vx']:.2f}, vy={self.velocity_setpoint['vy']:.2f}, vz={self.velocity_setpoint['vz']:.2f}"
+        if (self.pose_marker_to_camera['x'] is not None and self.aruco_pose_local['x'] is not None and self.vehicle_odometry['x'] is not None):
+            pose_marker_to_camera_text = f"Pose Marker to Camera: x={self.pose_marker_to_camera['x']:.2f}, y={self.pose_marker_to_camera['y']:.2f}, z={self.pose_marker_to_camera['z']:.2f}"
+            pose_drone_to_marker_text = f"Pose Drone to Marker: x={self.pose_drone_to_marker['x']:.2f}, y={self.pose_drone_to_marker['y']:.2f}, z={self.pose_drone_to_marker['z']:.2f}"
+            vehicle_odometry_text = f"Vehicle Odometry: x={self.vehicle_odometry['x']:.2f}, y={self.vehicle_odometry['y']:.2f}, z={self.vehicle_odometry['z']:.2f}"
 
-            cv.putText(cv_image, aruco_pose_camera_text, (10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-            cv.putText(cv_image, aruco_pose_local_text, (10, 50), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-            cv.putText(cv_image, drone_position_text, (10, 70), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-            cv.putText(cv_image, velocity_setpoint_text, (10, 90), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-            cv.putText(cv_image, drone_velocity_text, (10, 110), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+            cv.putText(cv_image, pose_marker_to_camera_text, (10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+            cv.putText(cv_image, pose_drone_to_marker_text, (10, 50), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+            cv.putText(cv_image, vehicle_odometry_text, (10, 70), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
         if self.record:
             self.out.write(cv_image)
@@ -137,31 +100,12 @@ class FrameConverter(Node):
         self.aruco_image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, encoding='bgr8'))
 
 
-    def frame_conversion(self):
-        if (self.vehicle_odometry['timestamp'] is not None) and (self.aruco_pose_camera['timestamp'] is not None):
-            timestamp_diff = self.vehicle_odometry['timestamp'] - self.aruco_pose_camera['timestamp']
-            #self.get_logger().info('Timestamp difference: {}'.format(timestamp_diff))
-            if abs(timestamp_diff) < self.acceptable_timestamp_diff:
-                aruco_pose_drone_message = PoseStamped()
-                aruco_pose_local_message = PoseStamped()
-                aruco_pose_drone = self.convert_cam2drone()
-                aruco_pose_drone_message.pose.position.x = aruco_pose_drone[0]
-                aruco_pose_drone_message.pose.position.y = aruco_pose_drone[1]
-                aruco_pose_drone_message.pose.position.z = aruco_pose_drone[2]
-                self.aruco_pose_drone_pub.publish(aruco_pose_drone_message)
-                self.tvec_D_L = np.array([self.vehicle_odometry['x'], self.vehicle_odometry['y'], self.vehicle_odometry['z']])
-                self.rvec_D_L = self.convert_quat2rot()
-                self.convert_drone2local(aruco_pose_drone)
-                aruco_pose_local_message.pose.position.x = self.aruco_pose_local['x']
-                aruco_pose_local_message.pose.position.y = self.aruco_pose_local['y']
-                aruco_pose_local_message.pose.position.z = self.aruco_pose_local['z']
-                self.aruco_pose_local_pub.publish(aruco_pose_local_message)
-
-
-    def convert_quat2rot(self):
-        return np.array([[1 - 2 * self.vehicle_odometry['qy']**2 - 2 * self.vehicle_odometry['qz']**2, 2 * self.vehicle_odometry['qx'] * self.vehicle_odometry['qy'] - 2 * self.vehicle_odometry['qz'] * self.vehicle_odometry['qw'], 2 * self.vehicle_odometry['qx'] * self.vehicle_odometry['qz'] + 2 * self.vehicle_odometry['qy'] * self.vehicle_odometry['qw']],
-                        [2 * self.vehicle_odometry['qx'] * self.vehicle_odometry['qy'] + 2 * self.vehicle_odometry['qz'] * self.vehicle_odometry['qw'], 1 - 2 * self.vehicle_odometry['qx']**2 - 2 * self.vehicle_odometry['qz']**2, 2 * self.vehicle_odometry['qy'] * self.vehicle_odometry['qz'] - 2 * self.vehicle_odometry['qx'] * self.vehicle_odometry['qw']],
-                        [2 * self.vehicle_odometry['qx'] * self.vehicle_odometry['qz'] - 2 * self.vehicle_odometry['qy'] * self.vehicle_odometry['qw'], 2 * self.vehicle_odometry['qy'] * self.vehicle_odometry['qz'] + 2 * self.vehicle_odometry['qx'] * self.vehicle_odometry['qw'], 1 - 2 * self.vehicle_odometry['qx']**2 - 2 * self.vehicle_odometry['qy']**2]])
+    def convert_quat2rot(self, qx, qy, qz, qw):
+        return np.array([
+            [1 - 2 * qy**2 - 2 * qz**2, 2 * qx * qy - 2 * qz * qw, 2 * qx * qz + 2 * qy * qw],
+            [2 * qx * qy + 2 * qz * qw, 1 - 2 * qx**2 - 2 * qz**2, 2 * qy * qz - 2 * qx * qw],
+            [2 * qx * qz - 2 * qy * qw, 2 * qy * qz + 2 * qx * qw, 1 - 2 * qx**2 - 2 * qy**2]
+        ])
     
     def get_transform_matrix(self, tvec, rvec):
         T = np.eye(4)
@@ -170,19 +114,42 @@ class FrameConverter(Node):
         return T
 
             
-    def convert_cam2drone(self):
-        T_C_D = self.get_transform_matrix(self.tvec_C_D, self.rvec_C_D)
-        aruco_pose_camera = np.array([self.aruco_pose_camera['x'], self.aruco_pose_camera['y'], self.aruco_pose_camera['z'], 1])
-        aruco_pose_drone = np.dot(T_C_D, aruco_pose_camera)
-        return aruco_pose_drone
-        
+    def convert_drone2cam(self, point):
+        T_D_C = self.get_transform_matrix(self.tvec_D_C, self.rvec_D_C)
+        pose_drone_to_camera = np.dot(T_D_C, point)
+        return pose_drone_to_camera
+    
+    def convert_camera2marker(self, point):
+        rvec_M_C = self.convert_quat2rot(self.pose_marker_to_camera['qx'], self.pose_marker_to_camera['qy'], self.pose_marker_to_camera['qz'], self.pose_marker_to_camera['qw'])
+        self.rvec_C_M = rvec_M_C.T
+        tvec_M_C = np.array([self.pose_marker_to_camera['x'], self.pose_marker_to_camera['y'], self.pose_marker_to_camera['z']])
+        self.tvec_C_M = -np.dot(self.rvec_C_M, tvec_M_C)
+        T_C_M = self.get_transform_matrix(self.tvec_C_M, self.rvec_C_M)
+        pose_camera_to_marker = np.dot(T_C_M, point)
+        return pose_camera_to_marker
 
-    def convert_drone2local(self, aruco_pose_drone):
-        T_D_L = self.get_transform_matrix(self.tvec_D_L, self.rvec_D_L)
-        aruco_pose_local = np.dot(T_D_L, aruco_pose_drone)
-        self.aruco_pose_local['x'] = aruco_pose_local[0]
-        self.aruco_pose_local['y'] = aruco_pose_local[1]
-        self.aruco_pose_local['z'] = aruco_pose_local[2]
+
+
+
+    def frame_conversion(self):
+        if (self.vehicle_odometry['timestamp'] is not None) and (self.pose_marker_to_camera['timestamp'] is not None):
+            timestamp_diff = self.vehicle_odometry['timestamp'] - self.pose_marker_to_camera['timestamp']
+
+            if abs(timestamp_diff) < self.acceptable_timestamp_diff:
+                pose_drone_to_marker = PoseStamped()
+                pose_drone_to_drone = np.array([0, 0, 0, 1])
+                pose_drone_to_camera = self.convert_drone2cam(pose_drone_to_drone)
+                pose_camera_to_marker = self.convert_camera2marker(pose_drone_to_camera)
+
+                self.pose_drone_to_marker['x'] = pose_camera_to_marker[0]
+                self.pose_drone_to_marker['y'] = pose_camera_to_marker[1]
+                self.pose_drone_to_marker['z'] = pose_camera_to_marker[2]
+
+                pose_drone_to_marker.header.stamp = self.get_clock().now().to_msg()
+                pose_drone_to_marker.pose.position.x = pose_camera_to_marker['x']
+                pose_drone_to_marker.pose.position.y = pose_camera_to_marker['y']
+                pose_drone_to_marker.pose.position.z = pose_camera_to_marker['z']
+                self.pose_drone_to_marker_pub.publish(pose_drone_to_marker)
 
     def vehicle_odometry_callback(self, vehicle_odometry):
         self.vehicle_odometry['timestamp'] = vehicle_odometry.timestamp
@@ -194,17 +161,15 @@ class FrameConverter(Node):
         self.vehicle_odometry['qy'] = vehicle_odometry.q[2]
         self.vehicle_odometry['qz'] = vehicle_odometry.q[3]
 
-    def trajectory_setpoint_callback(self, msg):
-        self.velocity_setpoint['timestamp'] = msg.timestamp
-        self.velocity_setpoint['vx'] = msg.velocity[0]
-        self.velocity_setpoint['vy'] = msg.velocity[1]
-        self.velocity_setpoint['vz'] = msg.velocity[2]
-
-    def aruco_pose_camera_callback(self, aruco_pose_camera):
-        self.aruco_pose_camera['timestamp'] = aruco_pose_camera.header.stamp.sec * 1e6 + aruco_pose_camera.header.stamp.nanosec * 1e-3
-        self.aruco_pose_camera['x'] = aruco_pose_camera.pose.position.x
-        self.aruco_pose_camera['y'] = aruco_pose_camera.pose.position.y
-        self.aruco_pose_camera['z'] = aruco_pose_camera.pose.position.z
+    def pose_marker_to_camera_callback(self, pose_marker_to_camera):
+        self.pose_marker_to_camera['timestamp'] = pose_marker_to_camera.header.stamp.sec * 1e6 + pose_marker_to_camera.header.stamp.nanosec * 1e-3
+        self.pose_marker_to_camera['x'] = pose_marker_to_camera.pose.position.x
+        self.pose_marker_to_camera['y'] = pose_marker_to_camera.pose.position.y
+        self.pose_marker_to_camera['z'] = pose_marker_to_camera.pose.position.z
+        self.pose_marker_to_camera['qx'] = pose_marker_to_camera.pose.orientation.x
+        self.pose_marker_to_camera['qy'] = pose_marker_to_camera.pose.orientation.y
+        self.pose_marker_to_camera['qz'] = pose_marker_to_camera.pose.orientation.z
+        self.pose_marker_to_camera['qw'] = pose_marker_to_camera.pose.orientation.w
         self.frame_conversion()
         
 def main(args=None):

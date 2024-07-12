@@ -53,8 +53,8 @@ class OffboardLandingController(Node):
         self.status_sub = self.create_subscription(
             VehicleStatus, '/fmu/out/vehicle_status', self.vehicle_status_callback, qos_profile)
         
-        self.aruco_pose_drone_subscriber = self.create_subscription(
-            PoseStamped, 'aruco_pose_drone', self.aruco_pose_drone_callback, 10)
+        self.pose_drone_to_marker_sub = self.create_subscription(
+            PoseStamped, 'pose_drone_to_marker', self.pose_drone_to_marker_callback, 10)
         
         # Initialize variables
         self.land_command_sent = False
@@ -108,16 +108,16 @@ class OffboardLandingController(Node):
         self.desired_y = aruco_pose_local.pose.position.y
         self.desired_z = aruco_pose_local.pose.position.z
 
-    def aruco_pose_drone_callback(self, aruco_pose_drone):
+    def pose_drone_to_marker_callback(self, pose_drone_to_marker):
         """Callback function for aruco_pose_drone topic subscriber."""
-        self.aruco_pose_drone = aruco_pose_drone
-        self.current_camera_x = aruco_pose_drone.pose.position.x
-        self.current_camera_y = aruco_pose_drone.pose.position.y
-        self.current_camera_z = aruco_pose_drone.pose.position.z
+        self.pose_drone_to_marker = pose_drone_to_marker
+        self.current_camera_x = pose_drone_to_marker.pose.position.x
+        self.current_camera_y = pose_drone_to_marker.pose.position.y
+        self.current_camera_z = pose_drone_to_marker.pose.position.z
 
         # Calculate velocity setpoints
-        self.vx = self.k * self.current_camera_x
-        self.vy = self.k * self.current_camera_y
+        self.vx = self.k * self.current_camera_y
+        self.vy = self.k * self.current_camera_x
 
     def publish_offboard_control_heartbeat_signal(self):
         """Publish the offboard control mode."""
