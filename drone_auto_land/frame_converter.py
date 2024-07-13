@@ -76,6 +76,7 @@ class FrameConverter(Node):
         }
 
         self.tvec_D_C = np.array([0, 0.05, -0.04])
+
         self.rvec_D_C = np.array([[0.0, 1.0, 0.0], [-1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
 
         self.tvec_C_M = None
@@ -114,7 +115,7 @@ class FrameConverter(Node):
         return T
 
             
-    def convert_drone2cam(self, point):
+    def convert_drone2camera(self, point):
         T_D_C = self.get_transform_matrix(self.tvec_D_C, self.rvec_D_C)
         pose_drone_to_camera = np.dot(T_D_C, point)
         return pose_drone_to_camera
@@ -128,10 +129,12 @@ class FrameConverter(Node):
         pose_camera_to_marker = np.dot(T_C_M, point)
         return pose_camera_to_marker
 
+
+
     def frame_conversion(self):
         pose_drone_to_marker = PoseStamped()
         pose_drone_to_drone = np.array([0, 0, 0, 1])
-        pose_drone_to_camera = self.convert_drone2cam(pose_drone_to_drone)
+        pose_drone_to_camera = self.convert_drone2camera(pose_drone_to_drone)
         pose_camera_to_marker = self.convert_camera2marker(pose_drone_to_camera)
 
         self.pose_drone_to_marker['x'] = pose_camera_to_marker[0]
