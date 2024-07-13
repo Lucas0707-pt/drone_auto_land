@@ -110,8 +110,8 @@ class OffboardLandingController(Node):
         self.drone_z = pose_drone_to_marker.pose.position.z
 
         # Calculate velocity setpoints
-        self.vx = self.kxy * self.drone_x
-        self.vy = self.kxy * self.drone_y
+        self.vx = self.kxy * self.drone_y
+        self.vy = self.kxy * self.drone_x
 
     def publish_offboard_control_heartbeat_signal(self):
         """Publish the offboard control mode."""
@@ -175,7 +175,7 @@ class OffboardLandingController(Node):
         self.publish_offboard_control_heartbeat_signal()
         
         # State machine
-        if self.state == "Correction" and self.desired_x != 0.0 and self.desired_x != 0.0:
+        if self.state == "Correction":
             self.correct_xy_position()
         elif self.state == "Descent":
             self.descend()
@@ -191,12 +191,12 @@ class OffboardLandingController(Node):
         self.current_land_state_publisher.publish(msg)
 
     def correct_xy_position(self):
+        self.get_logger().info("correct_xy_position")
         """Correct the position of the drone in the horizontal plane."""
         if self.drone_x is None or self.drone_y is None or self.drone_z is None or self.vx is None or self.vy is None:
             self.publish_velocity_setpoint(0.0, 0.0, 0.0)
             self.get_logger().info("Camera x, y, z or velocity x, y not available.")
             return
-        self.get_logger().info("ESTOU AQUI!")
         if (self.nav_state == VehicleStatus.NAVIGATION_STATE_OFFBOARD):
             if not self.setpoint_published:
                 #self.get_logger().info("[C] Current position x=%.2fm, y=%.2fm, z=%.2f" % (self.current_x, self.current_y, self.current_z))

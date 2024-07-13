@@ -128,28 +128,21 @@ class FrameConverter(Node):
         pose_camera_to_marker = np.dot(T_C_M, point)
         return pose_camera_to_marker
 
-
-
-
     def frame_conversion(self):
-        if (self.vehicle_odometry['timestamp'] is not None) and (self.pose_marker_to_camera['timestamp'] is not None):
-            timestamp_diff = self.vehicle_odometry['timestamp'] - self.pose_marker_to_camera['timestamp']
+        pose_drone_to_marker = PoseStamped()
+        pose_drone_to_drone = np.array([0, 0, 0, 1])
+        pose_drone_to_camera = self.convert_drone2cam(pose_drone_to_drone)
+        pose_camera_to_marker = self.convert_camera2marker(pose_drone_to_camera)
 
-            if abs(timestamp_diff) < self.acceptable_timestamp_diff:
-                pose_drone_to_marker = PoseStamped()
-                pose_drone_to_drone = np.array([0, 0, 0, 1])
-                pose_drone_to_camera = self.convert_drone2cam(pose_drone_to_drone)
-                pose_camera_to_marker = self.convert_camera2marker(pose_drone_to_camera)
+        self.pose_drone_to_marker['x'] = pose_camera_to_marker[0]
+        self.pose_drone_to_marker['y'] = pose_camera_to_marker[1]
+        self.pose_drone_to_marker['z'] = pose_camera_to_marker[2]
 
-                self.pose_drone_to_marker['x'] = pose_camera_to_marker[0]
-                self.pose_drone_to_marker['y'] = pose_camera_to_marker[1]
-                self.pose_drone_to_marker['z'] = pose_camera_to_marker[2]
-
-                pose_drone_to_marker.header.stamp = self.get_clock().now().to_msg()
-                pose_drone_to_marker.pose.position.x = self.pose_drone_to_marker['x']
-                pose_drone_to_marker.pose.position.y = self.pose_drone_to_marker['y']
-                pose_drone_to_marker.pose.position.z = self.pose_drone_to_marker['z']
-                self.pose_drone_to_marker_pub.publish(pose_drone_to_marker)
+        pose_drone_to_marker.header.stamp = self.get_clock().now().to_msg()
+        pose_drone_to_marker.pose.position.x = self.pose_drone_to_marker['x']
+        pose_drone_to_marker.pose.position.y = self.pose_drone_to_marker['y']
+        pose_drone_to_marker.pose.position.z = self.pose_drone_to_marker['z']
+        self.pose_drone_to_marker_pub.publish(pose_drone_to_marker)
 
     def vehicle_odometry_callback(self, vehicle_odometry):
         self.vehicle_odometry['timestamp'] = vehicle_odometry.timestamp
