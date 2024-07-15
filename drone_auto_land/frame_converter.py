@@ -71,9 +71,6 @@ class FrameConverter(Node):
         self.tvec_C_D = np.array([0.05, 0, 0.04])
         self.rvec_C_D = np.array([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
 
-        
-        self.tvec_D_L = None
-        self.rvec_D_L = None
 
     def aruco_image_callback(self, msg):
         cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
