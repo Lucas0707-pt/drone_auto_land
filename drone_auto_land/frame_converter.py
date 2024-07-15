@@ -86,11 +86,6 @@ class FrameConverter(Node):
                 velocity_setpoint_text = f"Velocity Setpoint: vx={self.velocity_setpoint['vx']:.2f}, vy={self.velocity_setpoint['vy']:.2f}, vz={self.velocity_setpoint['vz']:.2f}"
                 cv.putText(cv_image, velocity_setpoint_text, (10, 70), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
-            cv.putText(cv_image, aruco_pose_camera_text, (10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-            cv.putText(cv_image, self.vehicle_odometry, (10, 50), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-            cv.putText(cv_image, vehicle_odometry_text, (10, 70), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-
-
         if self.record:
             self.out.write(cv_image)
 
