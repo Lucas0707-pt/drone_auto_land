@@ -52,6 +52,7 @@ class MarkerDetector(Node):
         # Perform marker detection
         aruco_dict = cv.aruco.Dictionary_get(cv.aruco.DICT_ARUCO_ORIGINAL)
         parameters = cv.aruco.DetectorParameters_create()
+        parameters.perspectiveRemoveIgnoredMarginPerCell = 0.4
         corners, ids, _ = cv.aruco.detectMarkers(gray, aruco_dict, parameters=parameters)
 
         # If at least one marker detected
