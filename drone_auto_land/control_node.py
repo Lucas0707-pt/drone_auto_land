@@ -125,9 +125,9 @@ class OffboardLandingController(Node):
 
     def land(self):
         """Command the vehicle to land at its current altitude."""
-        if self.current_z is not None: 
+        if self.drone_z is not None: 
             self._logger.info('[L] Landing at the altitude of %.2fm' % abs(self.drone_z))
-            self.publish_vehicle_command(VehicleCommand.VEHICLE_CMD_NAV_LAND, param7=float(abs(self.current_z)))
+            self.publish_vehicle_command(VehicleCommand.VEHICLE_CMD_NAV_LAND, param7=float(abs(self.drone_z)))
             self.get_logger().info('[L] Land command sent')
             self.land_command_sent = True
             self.state = "Landed"
@@ -223,7 +223,7 @@ class OffboardLandingController(Node):
 
   
         if not self.setpoint_published:
-            self.goal_z = self.current_z + self.descent_height
+            self.goal_z = self.drone_z + self.descent_height
             self.camera_goal_z = self.drone_z - self.descent_height
             self.setpoint_published = True
         
