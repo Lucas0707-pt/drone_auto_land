@@ -80,7 +80,7 @@ class MarkerDetector(Node):
                 case _:
                     self.get_logger().info("More than 2 markers detected")
             
-            if tvec is not None and tvec[2] > 3:
+            if tvec is not None:
                 self.publish_aruco_pose(tvec[0], tvec[1], tvec[2])
 
         # Publish the image with the detected markers
