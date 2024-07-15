@@ -77,19 +77,17 @@ class FrameConverter(Node):
 
     def aruco_image_callback(self, msg):
         cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-        if (self.aruco_pose_camera['x'] is not None and self.aruco_pose_local['x'] is not None and self.vehicle_odometry['x'] is not None):
+        if (self.aruco_pose_camera['x'] is not None and self.vehicle_odometry['x'] is not None):
             aruco_pose_camera_text = f"ArUco Pose Camera: x={self.aruco_pose_camera['x']:.2f}, y={self.aruco_pose_camera['y']:.2f}, z={self.aruco_pose_camera['z']:.2f}"
-            aruco_pose_local_text = f"ArUco Pose Local: x={self.aruco_pose_local['x']:.2f}, y={self.aruco_pose_local['y']:.2f}, z={self.aruco_pose_local['z']:.2f}"
             vehicle_odometry_text = f"Drone Position: x={self.vehicle_odometry['x']:.2f}, y={self.vehicle_odometry['y']:.2f}, z={self.vehicle_odometry['z']:.2f}"
             cv.putText(cv_image, aruco_pose_camera_text, (10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-            cv.putText(cv_image, aruco_pose_local_text, (10, 50), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-            cv.putText(cv_image, vehicle_odometry_text, (10, 70), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+            cv.putText(cv_image, vehicle_odometry_text, (10, 50), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
             if (self.velocity_setpoint['vx'] is not None):
                 velocity_setpoint_text = f"Velocity Setpoint: vx={self.velocity_setpoint['vx']:.2f}, vy={self.velocity_setpoint['vy']:.2f}, vz={self.velocity_setpoint['vz']:.2f}"
-                cv.putText(cv_image, velocity_setpoint_text, (10, 90), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+                cv.putText(cv_image, velocity_setpoint_text, (10, 70), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
         cv.putText(cv_image, aruco_pose_camera_text, (10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-        cv.putText(cv_image, aruco_pose_local_text, (10, 50), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+        cv.putText(cv_image, self.vehicle_odometry, (10, 50), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
         cv.putText(cv_image, vehicle_odometry_text, (10, 70), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
 
