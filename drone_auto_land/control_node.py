@@ -252,10 +252,6 @@ class OffboardLandingController(Node):
         """Calculate the Euclidean distance between two points."""
         return np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
 
-    def distance_to_desired_position(self, x1, y1, x2, y2):
-        """Calculate the Euclidean distance between two points."""
-        return np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-
     def publish_velocity_setpoint(self, vx: float, vy: float, vz: float):
         """Publish the velocity setpoint."""
         msg = TrajectorySetpoint()
