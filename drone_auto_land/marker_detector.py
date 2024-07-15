@@ -19,8 +19,8 @@ class MarkerDetector(Node):
 
         self.marker_id = 118
         self.embedded_marker_id = 345
-        self.marker_size = 0.20
-        self.embedded_marker_size = 0.029
+        self.marker_size = 0.295
+        self.embedded_marker_size = 0.042
 
         # Load the camera matrix and distortion ro
         camera_matrix_file = 'src/drone_auto_land/drone_auto_land/camera_parameters/camera_matrix.txt'
@@ -37,35 +37,10 @@ class MarkerDetector(Node):
         pose.pose.position.z = z
         self.aruco_pose_camera_pub.publish(pose)
 
-    def invert_pose(self, rvec, tvec):
-        # Convert the rotation vector to a rotation matrix
-        R_camera_to_marker, _ = cv.Rodrigues(rvec)
-        
-        ##transpose this matrix
-        rvec_marker_to_camera = R_camera_to_marker.T
-        # Compute the translation vector of the camera in relation to the marker
-        tvec_marker_to_camera = -rvec_marker_to_camera @ tvec
-
-        return rvec_marker_to_camera, tvec_marker_to_camera
-
     def estimate_pose(self, corners, marker_size):
         ret = cv.aruco.estimatePoseSingleMarkers(corners, marker_size, self.camera_matrix, self.distortion_coeffs)
-        rvec, tvec = ret[0][0, 0, :], ret[1][0, 0, :]
-
-        # Convert the rotation vector to a rotation matrix
-        rotation_matrix, _ = cv.Rodrigues(rvec)
-
-        # Print the rotation matrix
-        print("Rotation Matrix:\n", rotation_matrix)
-        
-        # Invert pose to get camera in relation to marker
-        rvec_marker, tvec_marker = self.invert_pose(rvec, tvec)
-
-        # Print the inverted pose
-        #print("Inverted Rotation Vector (rvec_camera):", rvec_marker)
-        #print("Inverted Translation Vector (tvec_camera):", tvec_marker)
-        
-        return tvec_marker
+        tvec = ret[1][0, 0, :]
+        return tvec
 
     # Callback function for the camera image
     def image_callback(self, msg):
@@ -107,9 +82,6 @@ class MarkerDetector(Node):
             
             if tvec is not None and tvec[2] > 3:
                 self.publish_aruco_pose(tvec[0], tvec[1], tvec[2])
-
-            aruco_pose_camera_text = f"ArUco Pose Camera: x={tvec[0]:.2f}, y={tvec[1]:.2f}, z={tvec[2]:.2f}"
-            cv.putText(cv_image, aruco_pose_camera_text, (10, 30), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
 
         # Publish the image with the detected markers
         self.aruco_image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, encoding='bgr8'))
