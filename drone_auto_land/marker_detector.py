@@ -15,6 +15,11 @@ class MarkerDetector(Node):
         self.aruco_image_pub = self.create_publisher(Image, 'aruco_image_aux', 10)
 
         #debug 
+        self.adaptive_threshold_image_pub = self.create_publisher(Image, 'adaptive_threshold_image', 10)
+        self.adaptive_threshold_image_pub_binary = self.create_publisher(Image, 'adaptive_threshold_image_binary', 10)
+        self.adaptive_threshold_image_pub_inv_127 = self.create_publisher(Image, 'adaptive_threshold_image_inv_127', 10)
+        self.adaptive_threshold_image_pub_inv_80 = self.create_publisher(Image, 'adaptive_threshold_image_inv_80', 10)
+        self.threshold_bits_pub = self.create_publisher(Image, 'threshold_bits', 10)
         self.edges_pub = self.create_publisher(Image, 'edges', 10)
         self.contours_pub = self.create_publisher(Image, 'contours', 10)
         self.contours_filtered_pub = self.create_publisher(Image, 'contours_filtered', 10)
@@ -27,7 +32,7 @@ class MarkerDetector(Node):
         self.bridge = CvBridge()
         self.marker_id = 118
         self.embedded_marker_id = 345
-        self.marker_size = 0.292
+        self.marker_size = 0.295
         self.embedded_marker_size = 0.042
 
 
@@ -70,13 +75,23 @@ class MarkerDetector(Node):
         pose.pose.position.z = z
         self.aruco_pose_camera_pub.publish(pose)
 
-    def image_binarization(self, img, threshold_block_size=9, threshold_constant=0):
+    def image_binarization(self, img, threshold_block_size=7, threshold_constant=0):
         gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-        _, threshold_img = cv.threshold(gray, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
+        _, threshold_img_binary = cv.threshold(gray, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
         #adaptive thresholding
-        #threshold_img = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, threshold_block_size, threshold_constant)
+        threshold_value=127
+        _, threshold_img_inv_127 = cv.threshold(gray, threshold_value, 255, cv.THRESH_BINARY_INV)
+        threshold_value = 80
+        _, threshold_img_inv_80 = cv.threshold(gray, threshold_value, 255, cv.THRESH_BINARY_INV)
+
+
+        threshold_img = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, threshold_block_size, threshold_constant)
         #debug
         self.adaptive_threshold_image_debug = threshold_img
+        self.adaptive_threshold_image_pub.publish(self.bridge.cv2_to_imgmsg(threshold_img, encoding='mono8'))
+        self.adaptive_threshold_image_pub_binary.publish(self.bridge.cv2_to_imgmsg(threshold_img_binary, encoding='mono8'))
+        self.adaptive_threshold_image_pub_inv_127.publish(self.bridge.cv2_to_imgmsg(threshold_img_inv_127, encoding='mono8'))
+        self.adaptive_threshold_image_pub_inv_80.publish(self.bridge.cv2_to_imgmsg(threshold_img_inv_80, encoding='mono8'))
         return threshold_img
     
     def angle_vector(self, v1, v2):
@@ -163,9 +178,12 @@ class MarkerDetector(Node):
 
         #Apply otsu thresholding with gaussian filtering
         blured_img = cv.GaussianBlur(gray_img, (3, 3), 0)
-        _, threshold_image = cv.threshold(blured_img, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
+        threshold_value = 80
+        _, threshold_image = cv.threshold(blured_img, threshold_value, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU)
+        #_, threshold_image = cv.threshold(blured_img, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
+        self.threshold_bits_pub.publish(self.bridge.cv2_to_imgmsg(threshold_image, encoding='mono8'))
 
-        # Perform marker detection
+        # Perform marker detectiongray
         cell_size = threshold_image.shape[0] // 7
         cell_margin = int(cell_size * perspectiveRemoveIgnoredMarginPerCell)
         bits = np.zeros((7,7), dtype=np.uint8)
@@ -173,6 +191,8 @@ class MarkerDetector(Node):
         #add a seven by seven grid to the warped and between each cell draw a rectangle removing the cell_margin
         threshold_image_grid = threshold_image.copy()
         threshold_image_grid = cv.cvtColor(threshold_image_grid, cv.COLOR_GRAY2BGR)
+        #publish
+
         for i in range(1, 7):
             start_point_vertical = (i * cell_size, 0)
             end_point_vertical = (i * cell_size, 50)
@@ -192,7 +212,7 @@ class MarkerDetector(Node):
             for y in range(7):
                 cell = threshold_image[x*cell_size:(x+1)*cell_size, y*cell_size:(y+1)*cell_size]
                 cell = cell[cell_margin:cell_size-cell_margin, cell_margin:cell_size-cell_margin]
-                if np.mean(cell) > 80:
+                if np.mean(cell) < 127:
                     bits[x,y] = 1
 
         #create image with bits and publish to the topic
