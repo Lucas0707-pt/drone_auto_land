@@ -56,16 +56,16 @@ class FrameConverter(Node):
 
         self.vehicle_odometry = {
             'timestamp': None,
-            'x': None,
-            'y': None,
-            'z': None
+            'x': 0,
+            'y': 0,
+            'z': 0
         }
 
         self.velocity_setpoint = {
             'timestamp': None,
-            'vx': None,
-            'vy': None,
-            'vz': None
+            'vx': 0,
+            'vy': 0,
+            'vz': 0
         }
 
         self.tvec_C_D = np.array([0.05, 0, 0.04])

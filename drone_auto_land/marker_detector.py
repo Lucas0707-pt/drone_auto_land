@@ -17,14 +17,14 @@ class MarkerDetector(Node):
 
         self.bridge = CvBridge()
 
-        self.marker_id = 118
+        self.marker_id = 29
         self.embedded_marker_id = 345
         self.marker_size = 0.295
         self.embedded_marker_size = 0.042
 
         # Load the camera matrix and distortion ro
-        camera_matrix_file = 'src/drone_auto_land/drone_auto_land/camera_parameters/camera_matrix.txt'
-        distortion_coefficients_file = 'src/drone_auto_land/drone_auto_land/camera_parameters/camera_distortion_coefficients.txt'
+        camera_matrix_file = 'camera_parameters/camera_matrix.txt'
+        distortion_coefficients_file = 'camera_parameters/camera_distortion_coefficients.txt'
         self.camera_matrix = np.loadtxt(camera_matrix_file, delimiter=',')
         self.distortion_coeffs = np.loadtxt(distortion_coefficients_file, delimiter=',')
 
@@ -50,9 +50,9 @@ class MarkerDetector(Node):
         gray = cv.GaussianBlur(gray, (3, 3), 0)
 
         # Perform marker detection
-        aruco_dict = cv.aruco.Dictionary_get(cv.aruco.DICT_ARUCO_ORIGINAL)
+        aruco_dict = cv.aruco.Dictionary_get(cv.aruco.DICT_7X7_1000)
         parameters = cv.aruco.DetectorParameters_create()
-        parameters.perspectiveRemoveIgnoredMarginPerCell = 0.4
+        #parameters.perspectiveRemoveIgnoredMarginPerCell = 0.4
         corners, ids, _ = cv.aruco.detectMarkers(gray, aruco_dict, parameters=parameters)
 
         # If at least one marker detected
