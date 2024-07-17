@@ -10,7 +10,7 @@ class CameraBridge(Node):
         self.camera_image_pub = self.create_publisher(Image, '/camera', 10)
         self.bridge = CvBridge()
         self.timer = self.create_timer(1.0/10.0, self.camera_image_callback)
-        self.cap = cv.VideoCapture(2)
+        self.cap = cv.VideoCapture(0)
 
     def release_camera(self):
         self.cap.release()
@@ -18,8 +18,6 @@ class CameraBridge(Node):
     def camera_image_callback(self):
         ret, frame = self.cap.read()
         if ret:
-            #print current dimensions of the frame
-            #frame = cv.resize(frame, (640, 480))
             msg = self.bridge.cv2_to_imgmsg(frame, encoding='bgr8')
             self.camera_image_pub.publish(msg)
         else:
