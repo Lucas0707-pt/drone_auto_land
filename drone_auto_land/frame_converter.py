@@ -56,21 +56,20 @@ class FrameConverter(Node):
 
         self.vehicle_odometry = {
             'timestamp': None,
-            'x': 0,
-            'y': 0,
-            'z': 0
+            'x': None,
+            'y': None,
+            'z': None
         }
 
         self.velocity_setpoint = {
             'timestamp': None,
-            'vx': 0,
-            'vy': 0,
-            'vz': 0
+            'vx': None,
+            'vy': None,
+            'vz': None
         }
 
         self.tvec_C_D = np.array([0.05, 0, 0.04])
         self.rvec_C_D = np.array([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
-
 
     def aruco_image_callback(self, msg):
         cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
