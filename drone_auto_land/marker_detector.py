@@ -13,6 +13,8 @@ class MarkerDetector(Node):
         #create publishers and subscribers
         self.camera_image_sub = self.create_subscription(Image, 'camera', self.image_callback, 10)
         self.aruco_image_pub = self.create_publisher(Image, 'aruco_image_aux', 10)
+
+        #debug
         self.aruco_pose_camera_pub = self.create_publisher(PoseStamped, 'aruco_pose_camera', 10)
 
         self.bridge = CvBridge()
@@ -35,6 +37,7 @@ class MarkerDetector(Node):
                                             [1, 0, 1, 1, 1]], dtype=np.uint8)
                                               
 
+        #debu
 
         # Load the camera matrix and distortion coefficients
         camera_matrix_file = 'src/drone_auto_land/drone_auto_land/camera_parameters/camera_matrix.txt'
@@ -55,8 +58,22 @@ class MarkerDetector(Node):
 
     def image_binarization(self, img, threshold_block_size=7, threshold_constant=0):
         gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-        threshold_img = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, threshold_block_size, threshold_constant)
-        return threshold_img
+        _, threshold_img_binary = cv.threshold(gray, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
+        #adaptive thresholding
+       # threshold_value=127
+       # _, threshold_img_inv_127 = cv.threshold(gray, threshold_value, 255, cv.THRESH_BINARY_INV)
+       # threshold_value = 80
+       # _, threshold_img_inv_80 = cv.threshold(gray, threshold_value, 255, cv.THRESH_BINARY_INV)
+
+
+        #threshold_img = cv.adaptiveThreshold(gray, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, threshold_block_size, threshold_constant)
+        #debug
+        #self.adaptive_threshold_image_debug = threshold_img
+        #self.adaptive_threshold_image_pub.publish(self.bridge.cv2_to_imgmsg(threshold_img, encoding='mono8'))
+        #self.adaptive_threshold_image_pub_binary.publish(self.bridge.cv2_to_imgmsg(threshold_img_binary, encoding='mono8'))
+        #self.adaptive_threshold_image_pub_inv_127.publish(self.bridge.cv2_to_imgmsg(threshold_img_inv_127, encoding='mono8'))
+        #self.adaptive_threshold_image_pub_inv_80.publish(self.bridge.cv2_to_imgmsg(threshold_img_inv_80, encoding='mono8'))
+        return threshold_img_binary
     
     def angle_vector(self, v1, v2):
         cosine_angle = np.dot(v1, v2) / (np.linalg.norm(v1) * np.linalg.norm(v2))
@@ -79,12 +96,30 @@ class MarkerDetector(Node):
         ordered_corners[1] = corners[np.argmin(diff)]
         ordered_corners[3] = corners[np.argmax(diff)]
 
+        #ordered_corners = ordered_corners.reshape(-1, 1, 2)
         return ordered_corners
     
     def detect_quadrilateral(self, img, min_area=100, max_area=100000, min_angle=0.785, max_angle=2.356):
         blurred_img = cv.GaussianBlur(img, (3, 3), 0)
-        contours, _ = cv.findContours(blurred_img, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+        #lower_threshold = np.median(blurred_img)
+        #upper_threshold = lower_threshold * 1.5
+        #edges = cv.Canny(blurred_img, lower_threshold, upper_threshold)
+        #publish edges
+        #self.edges_pub.publish(self.bridge.cv2_to_imgmsg(edges, encoding='mono8'))
 
+        contours, _ = cv.findContours(blurred_img, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
+        #debug
+        #add areas and angles to the contours
+       # for contour in contours:
+            #add area to self.contours_debug
+        #    area = cv.contourArea(contour)
+            #if area < 50000:
+            #    continue
+         #   cv.drawContours(self.contours_debug, [contour], -1, (0, 255, 0), 2)
+          #  if (area > 50000):
+           #     cv.putText(self.contours_debug, str(area), tuple(contour[0][0]), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+
+        #countours_filtered = []
         potential_marker_corners = []   
         for contour in contours:
             area = cv.contourArea(contour)
@@ -102,6 +137,14 @@ class MarkerDetector(Node):
                 if (all(angle > min_angle and angle < max_angle for angle in angles)):
                     ordered_corners = self.order_corners(approx)
                     potential_marker_corners.append(ordered_corners)
+                   # countours_filtered.append(contour)
+
+        #debug
+
+        #cv.drawContours(self.countours_filtered_debug, countours_filtered, -1, (0, 255, 0), 2)
+        #publish contours_filtered
+        #self.contours_pub.publish(self.bridge.cv2_to_imgmsg(self.contours_debug, encoding='bgr8'))
+        #self.contours_filtered_pub.publish(self.bridge.cv2_to_imgmsg(self.countours_filtered_debug, encoding='bgr8'))
         return potential_marker_corners
     
     def get_bits(self, img, corners, perspectiveRemoveIgnoredMarginPerCell=0.13):
@@ -109,6 +152,8 @@ class MarkerDetector(Node):
         dst_pts = np.array([[0, 0], [49, 0], [49, 49], [0, 49]], dtype=np.float32)
         M = cv.getPerspectiveTransform(corners, dst_pts)
         warped = cv.warpPerspective(img, M, (50, 50))
+        #self.warped_debug = warped
+        #self.warped_pub.publish(self.bridge.cv2_to_imgmsg(warped, encoding='bgr8'))
         
         gray_img = cv.cvtColor(warped, cv.COLOR_BGR2GRAY)
 
@@ -116,10 +161,33 @@ class MarkerDetector(Node):
         blured_img = cv.GaussianBlur(gray_img, (3, 3), 0)
         threshold_value = 80
         _, threshold_image = cv.threshold(blured_img, threshold_value, 255, cv.THRESH_BINARY_INV + cv.THRESH_OTSU)
+        #_, threshold_image = cv.threshold(blured_img, 0, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)
+        #self.threshold_bits_pub.publish(self.bridge.cv2_to_imgmsg(threshold_image, encoding='mono8'))
 
+        # Perform marker detectiongray
         cell_size = threshold_image.shape[0] // 7
         cell_margin = int(cell_size * perspectiveRemoveIgnoredMarginPerCell)
         bits = np.zeros((7,7), dtype=np.uint8)
+
+        #add a seven by seven grid to the warped and between each cell draw a rectangle removing the cell_margin
+        #threshold_image_grid = threshold_image.copy()
+        #threshold_image_grid = cv.cvtColor(threshold_image_grid, cv.COLOR_GRAY2BGR)
+        #publish
+
+        #for i in range(1, 7):
+         #   start_point_vertical = (i * cell_size, 0)
+          #  end_point_vertical = (i * cell_size, 50)
+           # start_point_horizontal = (0, i * cell_size)
+            #end_point_horizontal = (50, i * cell_size)
+
+            #color = (0, 0, 255)
+                        # Draw vertical line
+            #cv.line(threshold_image_grid, start_point_vertical, end_point_vertical, color, 1)
+            
+            # Draw horizontal line
+            #cv.line(threshold_image_grid, start_point_horizontal, end_point_horizontal, color, 1)
+
+       # self.warped_threshold_pub.publish(self.bridge.cv2_to_imgmsg(threshold_image_grid, encoding='bgr8'))
 
         for x in range(7):
             for y in range(7):
@@ -127,6 +195,21 @@ class MarkerDetector(Node):
                 cell = cell[cell_margin:cell_size-cell_margin, cell_margin:cell_size-cell_margin]
                 if np.mean(cell) < 127:
                     bits[x,y] = 1
+
+        #create image with bits and publish to the topic
+       # bits_img = np.zeros((50, 50), dtype=np.uint8)
+       # bit_cell_size = bits_img.shape[0] // 7
+       # for i in range(7):
+        #    for j in range(7):
+         #       if bits[i, j] == 1:
+          #          cv.rectangle(bits_img, 
+           #                      (j*bit_cell_size, i*bit_cell_size), 
+            #                     ((j+1)*bit_cell_size, (i+1)*bit_cell_size), 
+             #                    255, 
+              #                   -1)
+
+        #self.bits_image_pub.publish(self.bridge.cv2_to_imgmsg(bits_img, encoding='mono8'))
+
         return bits
     
     def hamming_distance(self, bits):
@@ -153,6 +236,16 @@ class MarkerDetector(Node):
         
 
         marker_bits = bits[1:6, 1:6]
+        #print(marker_bits)
+        #debug
+       # marker_img = np.zeros((50, 50), dtype=np.uint8)
+       # for i in range(5):
+         #   for j in range(5):
+         #       if marker_bits[i, j] == 1:
+        #            cv.rectangle(marker_img, (j*60, i*60), ((j+1)*60, (i+1)*60), 255, -1)
+       # self.marker_bits_debug = marker_img
+
+
         # Check if the marker bits are correct
         erroneous_marker_bits, erroneous_embedded_marker_bits = self.hamming_distance(marker_bits)
 
@@ -167,8 +260,18 @@ class MarkerDetector(Node):
                 marker_id = self.embedded_marker_id
                 return marker_id, corners
             else:
+                #print("estou aqui!")
+                #print(marker_bits)
+                #print(corners)
+                # Rotate the marker 90 degrees
                 marker_bits = np.rot90(marker_bits)
+                #print("after rotation")
+                #print(marker_bits)
+
+                #rotate corners
                 corners = np.array([corners[3], corners[0], corners[1], corners[2]], dtype=np.float32)
+
+
                 erroneous_marker_bits, erroneous_embedded_marker_bits = self.hamming_distance(marker_bits)
 
         return marker_id, corners
@@ -211,6 +314,12 @@ class MarkerDetector(Node):
 
             text_position = tuple(corners[bottom_right_corner_id])
             cv.putText(img, str(marker_ids[i][0]), text_position, cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+            #add to the top left corner the area of the marker
+           # top_left_corner_id = np.argmin(np.sum(corners, axis=1))
+           # area = cv.contourArea(corners)
+           # cv.putText(img, str(area), tuple(corners[top_left_corner_id]), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
+
+
 
         return img
     
@@ -220,12 +329,15 @@ class MarkerDetector(Node):
     def image_callback(self, msg):
         cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
         undistorted_img = cv.undistort(cv_image, self.camera_matrix, self.distortion_coeffs)
+        #debug
+       # self.contours_debug = undistorted_img.copy()
+       # self.countours_filtered_debug = undistorted_img.copy()
 
         undistorted_img_bin = self.image_binarization(undistorted_img)
-
         potential_marker_corners = []
         if self.last_aruco_area is not None and self.failed_finding_marker_tries < 10:
             min_area, max_area = self.get_min_max_area()
+            #print("min_area: ", min_area, "max_area: ", max_area)
             potential_marker_corners = self.detect_quadrilateral(undistorted_img_bin, min_area, max_area, 0.785, 2.356)
         else:
             potential_marker_corners = self.detect_quadrilateral(undistorted_img_bin, 100, 307200, 0.785, 2.356)
@@ -234,6 +346,7 @@ class MarkerDetector(Node):
         
         marker_ids = []
         marker_corners = []
+
 
         if len(potential_marker_corners) > 0:
 
