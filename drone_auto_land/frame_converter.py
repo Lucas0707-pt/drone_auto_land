@@ -1,7 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
-from px4_msgs.msg import VehicleOdometry
+from px4_msgs.msg import VehicleOdometry, TrajectorySetpoint
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import PoseStamped
 import numpy as np
@@ -37,6 +37,9 @@ class FrameConverter(Node):
 
         self.vehicle_odometry_sub = self.create_subscription(
             VehicleOdometry, '/fmu/out/vehicle_odometry', self.vehicle_odometry_callback, qos_profile)
+        
+        self.trajectory_setpoint_sub = self.create_subscription(
+            TrajectorySetpoint, '/fmu/in/trajectory_setpoint', self.trajectory_setpoint_callback, qos_profile)
 
         self.aruco_pose_camera_sub = self.create_subscription(
             PoseStamped, 'aruco_pose_camera', self.aruco_pose_camera_callback, 10)

@@ -59,7 +59,7 @@ class OffboardLandingController(Node):
         self.vy = 0.0
         self.vz = 0.0
         self.descent_height = 0.2  # Height to descend in z
-        self.land_dist_th = 0.4 # Height to land()
+        self.land_dist_th = 0.5 # Height to land()
         self.goal_z = 0.0
         self.camera_goal_z = 0.0
         self.error_threshold_z = 0.1  # Threshold for z error
@@ -178,7 +178,7 @@ class OffboardLandingController(Node):
     def correct_xy_position(self):
         """Correct the position of the drone in the horizontal plane."""
         if self.drone_x is None or self.drone_y is None or self.drone_z is None or self.vx is None or self.vy is None:
-            self.publish_velocity_setpoint(0.0, 0.0, 0.0)
+            #self.publish_velocity_setpoint(0.0, 0.0, 0.0)
             self.get_logger().info("Camera x, y, z or velocity x, y not available.")
             return
 
@@ -204,7 +204,7 @@ class OffboardLandingController(Node):
     def descend(self):
         """Descend the predefined height."""
         if  self.drone_z is None:
-            self.publish_velocity_setpoint(0.0, 0.0, 0.0)
+            #self.publish_velocity_setpoint(0.0, 0.0, 0.0)
             self.get_logger().info("Current z, camera z, desired z or descent height not available.")
             return
         
