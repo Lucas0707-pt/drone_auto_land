@@ -6,7 +6,7 @@ from datetime import datetime
 import pytz
 
 # Define the log directory 
-log_dir = '2024_6_27_12_38_13/'
+log_dir = '2024_7_19_10_24_4/'
 
 # Extract year, month, day, hour, minute, and second from log directory
 log_components = log_dir.rstrip('/').split('_')
@@ -26,7 +26,7 @@ print(f"Start timestamp in local time zone: {start_timestamp_local}")
 
 # Define the list of CSV filenames
 current_land_state_file = log_dir + "current_land_state.csv"
-velocity_setpoint_file = log_dir + "velocity_setpoint.csv"
+velocity_setpoint_file = log_dir + "trajectory_setpoint.csv"
 vehicle_odometry_file = log_dir + "vehicle_odometry.csv"
 
 # Function to check if files exist
