@@ -60,7 +60,6 @@ class OffboardLandingController(Node):
         self.vz = 0.0
         self.descent_height = 0.2  # Height to descend in z
         self.land_dist_th = 0.5 # Height to land()
-        self.goal_z = 0.0
         self.camera_goal_z = 0.0
         self.error_threshold_z = 0.1  # Threshold for z error
         self.error_threshold_xy = 0.15 # Threshold for x and y error
@@ -182,14 +181,14 @@ class OffboardLandingController(Node):
             self.get_logger().info("Camera x, y, z or velocity x, y not available.")
             return
 
-        if (self.nav_state == VehicleStatus.NAVIGATION_STATE_OFFBOARD):
+        if (self.offboard_started):
             if not self.setpoint_published:
                 self.get_logger().info("[C] Publishing velocity setpoint at position x=%.2f, y=%.2f" % (self.drone_x, self.drone_y))
                 self.publish_velocity_setpoint(self.vx, self.vy, 0.0)
                 self.setpoint_published = False
 
             # Condition to switch to descent state
-            if self.distance_to_desired_position(self.drone_x, self.drone_y, 0.0, 0.0) < self.error_threshold_xz:
+            if self.distance_to_desired_position(self.drone_x, self.drone_y, 0.0, 0.0) < self.error_threshold_xy:
                 self.get_logger().info("[C] Horizontal Error = %.2fm" % (self.distance_to_desired_position(self.drone_x, self.drone_y, 0.0, 0.0)))
                 self.state = "Descent"
 
@@ -219,7 +218,6 @@ class OffboardLandingController(Node):
 
   
         if not self.setpoint_published:
-            self.goal_z = self.drone_z + self.descent_height
             self.camera_goal_z = self.drone_z - self.descent_height
             self.setpoint_published = True
         
