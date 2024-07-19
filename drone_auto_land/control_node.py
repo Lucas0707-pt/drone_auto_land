@@ -42,13 +42,6 @@ class OffboardLandingController(Node):
         
         self.current_land_state_publisher = self.create_publisher(
             String, '/current_land_state', qos_profile_state_publisher)  
-
-        # Create subscribers
-        self.vehicle_odometry_subscriber = self.create_subscription(
-            VehicleOdometry, '/fmu/out/vehicle_odometry', self.vehicle_odometry_callback, qos_profile)
-        
-        self.aruco_pose_local_subscriber = self.create_subscription(
-            PoseStamped, '/aruco_pose_local', self.aruco_pose_local_callback, 10)
         
         self.status_sub = self.create_subscription(
             VehicleStatus, '/fmu/out/vehicle_status', self.vehicle_status_callback, qos_profile)
@@ -62,8 +55,11 @@ class OffboardLandingController(Node):
         self.drone_y = 0.0
         self.drone_z = 0.0
         self.drone_z = 0.0
+        self.vx = 0.0
+        self.vy = 0.0
+        self.vz = 0.0
         self.descent_height = 0.2  # Height to descend in z
-        self.land_dist_th = 0.5 # Height to land()
+        self.land_dist_th = 0.4 # Height to land()
         self.goal_z = 0.0
         self.camera_goal_z = 0.0
         self.error_threshold_z = 0.1  # Threshold for z error
@@ -81,11 +77,11 @@ class OffboardLandingController(Node):
         self.offboard_started = False
 
         # Gain associated with velocity value
-        self.k = 0.5
+        self.kxy = 0.5
         self.kz = 1.0
 
         # Create a timer to publish control commands
-        self.timer = self.create_timer(0.1, self.timer_callback)
+        self.timer = self.create_timer(0.2, self.timer_callback)
 
     def vehicle_status_callback(self, msg):
         self.nav_state = msg.nav_state
@@ -97,8 +93,8 @@ class OffboardLandingController(Node):
         self.drone_z = aruco_pose_drone.pose.position.z
 
         # Calculate velocity setpoints
-        self.vx = -self.k * self.drone_y
-        self.vy = self.k * self.drone_x
+        self.vx = self.kx * self.drone_x
+        self.vy = self.kx * self.drone_y
 
     def publish_offboard_control_heartbeat_signal(self):
         """Publish the offboard control mode."""
