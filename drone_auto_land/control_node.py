@@ -93,8 +93,8 @@ class OffboardLandingController(Node):
         self.drone_z = aruco_pose_drone.pose.position.z
 
         # Calculate velocity setpoints
-        self.vx = self.kx * self.drone_x
-        self.vy = self.kx * self.drone_y
+        self.vx = self.kxy * self.drone_x
+        self.vy = self.kxy * self.drone_y
 
     def publish_offboard_control_heartbeat_signal(self):
         """Publish the offboard control mode."""
