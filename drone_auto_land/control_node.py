@@ -3,9 +3,8 @@ from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
 from geometry_msgs.msg import PoseStamped
 from px4_msgs.msg import OffboardControlMode, TrajectorySetpoint, VehicleCommand, VehicleOdometry, VehicleStatus
-from std_msgs.msg import String
 import numpy as np
-import datetime
+from std_msgs.msg import String
 
 __author__ = "Bruno Silva"
 __contact__ = "up201906367@up.pt"
@@ -15,7 +14,7 @@ class OffboardLandingController(Node):
 
     def __init__(self) -> None:
         super().__init__('offboard_landing_controller')
-        now = datetime.datetime.now()
+        
         # Configure QoS profile for publishing and subscribing
         qos_profile = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
@@ -42,40 +41,30 @@ class OffboardLandingController(Node):
             VehicleCommand, '/fmu/in/vehicle_command', qos_profile)
         
         self.current_land_state_publisher = self.create_publisher(
-            String, '/current_land_state', qos_profile_state_publisher)
-        
-        # Create subscribers
-        self.aruco_pose_drone = self.create_subscription(
-            PoseStamped, 'aruco_pose_drone', self.aruco_pose_drone_callback, 10)
+            String, '/current_land_state', qos_profile_state_publisher)  
 
-        self.vehicle_odometry_subscriber = self.create_subscription(
-            VehicleOdometry, '/fmu/out/vehicle_odometry', self.vehicle_odometry_callback, qos_profile)
-        
+        # Create subscribers
         self.status_sub = self.create_subscription(
             VehicleStatus, '/fmu/out/vehicle_status', self.vehicle_status_callback, qos_profile)
         
+        self.aruco_pose_drone = self.create_subscription(
+            PoseStamped, 'aruco_pose_drone', self.aruco_pose_drone_callback, 10)
+        
         # Initialize variables
         self.land_command_sent = False
-        self.vehicle_odometry = VehicleOdometry()
-        self.desired_x = 0.0
-        self.desired_y = 0.0
-        self.current_x = 0.0
-        self.current_y = 0.0
-        self.current_z = 0.0
-        self.desired_z = 0.0
         self.drone_x = 0.0
         self.drone_y = 0.0
         self.drone_z = 0.0
         self.drone_z = 0.0
-        self.descent_height = 0.2  # Height to descend in z
-        self.land_dist_th = 0.4 # Height to land
-        self.goal_z = 0.0
-        self.camera_goal_z = 0.0
-        self.error_threshold_z = 0.05  # Threshold for z error
-        self.error_threshold_xz = 0.15 # Threshold for x and z error
         self.vx = 0.0
         self.vy = 0.0
         self.vz = 0.0
+        self.descent_height = 0.3  # Height to descend in z
+        self.land_dist_th = 0.55 # Height to land()
+        self.goal_z = 0.0
+        self.camera_goal_z = 0.0
+        self.error_threshold_z = 0.1  # Threshold for z error
+        self.error_threshold_xy = 0.1 # Threshold for x and y error
         
         self.state = "Correction" # Correction / Descent / Landing
 
@@ -84,10 +73,12 @@ class OffboardLandingController(Node):
 
         # Flag to track if setpoint has been published
         self.setpoint_published = False
-        self.camera_pose_updated = False
+
+        # Flag to track if offboard mode has been started
+        self.offboard_started = False
 
         # Gain associated with velocity value
-        self.kxy = 0.5
+        self.k = 0.5
         self.kz = 1.0
 
         # Create a timer to publish control commands
@@ -96,13 +87,6 @@ class OffboardLandingController(Node):
     def vehicle_status_callback(self, msg):
         self.nav_state = msg.nav_state
 
-    def vehicle_odometry_callback(self, vehicle_odometry):
-        """Callback function for vehicle_odometry topic subscriber."""
-        self.vehicle_odometry = vehicle_odometry
-        self.current_x = vehicle_odometry.position[0]
-        self.current_y = vehicle_odometry.position[1]
-        self.current_z = vehicle_odometry.position[2]
-
     def aruco_pose_drone_callback(self, aruco_pose_drone):
         """Callback function for aruco_pose_drone topic subscriber."""
         self.drone_x = aruco_pose_drone.pose.position.x
@@ -110,8 +94,8 @@ class OffboardLandingController(Node):
         self.drone_z = aruco_pose_drone.pose.position.z
 
         # Calculate velocity setpoints
-        self.vx = self.kxy * self.drone_x
-        self.vy = self.kxy * self.drone_y
+        self.vx = self.k * self.drone_x
+        self.vy = self.k * self.drone_y
 
     def publish_offboard_control_heartbeat_signal(self):
         """Publish the offboard control mode."""
@@ -138,9 +122,9 @@ class OffboardLandingController(Node):
 
     def land(self):
         """Command the vehicle to land at its current altitude."""
-        if self.current_z is not None: 
+        if self.drone_z is not None: 
             self._logger.info('[L] Landing at the altitude of %.2fm' % abs(self.drone_z))
-            self.publish_vehicle_command(VehicleCommand.VEHICLE_CMD_NAV_LAND, param7=float(abs(self.current_z)))
+            self.publish_vehicle_command(VehicleCommand.VEHICLE_CMD_NAV_LAND)
             self.get_logger().info('[L] Land command sent')
             self.land_command_sent = True
             self.state = "Landed"
@@ -168,7 +152,7 @@ class OffboardLandingController(Node):
 
     def timer_callback(self) -> None:
         """Callback function for the timer."""
-        # Publish offboard control heartbeat signal
+         # Publish offboard control heartbeat signal
         if (self.nav_state != VehicleStatus.NAVIGATION_STATE_OFFBOARD and self.land_command_sent == False):
             self.engage_offboard_mode()
             
@@ -184,49 +168,40 @@ class OffboardLandingController(Node):
 
         self.publish_current_land_state()
 
+    
     def publish_current_land_state(self):
         """Publish the current land state along with timestamp."""
         msg = String()
         msg.data = f"{self.state}"
         self.current_land_state_publisher.publish(msg)
+    
 
     def correct_xy_position(self):
-        self.get_logger().info("correct_xy_position")
         """Correct the position of the drone in the horizontal plane."""
         if self.drone_x is None or self.drone_y is None or self.drone_z is None or self.vx is None or self.vy is None:
-            self.publish_velocity_setpoint(0.0, 0.0, 0.0)
+            #self.publish_velocity_setpoint(0.0, 0.0, 0.0)
             self.get_logger().info("Camera x, y, z or velocity x, y not available.")
             return
+
         if (self.nav_state == VehicleStatus.NAVIGATION_STATE_OFFBOARD):
             if not self.setpoint_published:
-                #self.get_logger().info("[C] Current position x=%.2fm, y=%.2fm, z=%.2f" % (self.current_x, self.current_y, self.current_z))
-                #self.get_logger().info("[C] Correcting to x=%.2fm, y=%.2fm, z=%.2f" % (self.desired_x, self.desired_y, self.current_z))
-                #self.get_logger().info("[C] Current camera position x=%.2fm, y=%.2fm, z=%.2f" % (self.drone_x, self.drone_y, self.drone_z))
-                #self.get_logger().info("[C] Control velocity x=%.2fm/s, y=%.2fm/s" % (self.vx, self.vy))
-                
-                # # Generate linear trajectory for correction
-                # waypoints = self.generate_linear_trajectory(self.current_x, self.current_y, self.desired_x, self.desired_y, self.current_z, self.current_z, num_points=2)
-                
-                # # Publish trajectory setpoints
-                # for waypoint in waypoints:
-                #     self.publish_trajectory_setpoint(waypoint[0], waypoint[1], waypoint[2])
                 self.get_logger().info("[C] Publishing velocity setpoint at position x=%.2f, y=%.2f" % (self.drone_x, self.drone_y))
                 self.publish_velocity_setpoint(self.vx, self.vy, 0.0)
                 self.setpoint_published = False
 
             # Condition to switch to descent state
-            if self.distance_to_desired_position(self.drone_x, self.drone_y, 0.0, 0.0) < self.error_threshold_xz:
-                #self.get_logger().info("[C] Horizontal Error = %.2fm" % (self.distance_to_desired_position(self.drone_x, self.drone_y, 0.0, 0.0)))
+            if self.distance_to_desired_position(self.drone_x, self.drone_y, 0.0, 0.0) < self.error_threshold_xy:
+                self.get_logger().info("[C] Horizontal Error = %.2fm" % (self.distance_to_desired_position(self.drone_x, self.drone_y, 0.0, 0.0)))
                 self.state = "Descent"
 
         else:
             self.get_logger().info("Vehicle not in offboard mode.")
 
+
         self.drone_x = None
         self.drone_y = None
         self.drone_z = None
 
-        
     def descend(self):
         """Descend the predefined height."""
         if  self.drone_z is None:
@@ -234,30 +209,17 @@ class OffboardLandingController(Node):
             self.get_logger().info("Current z, camera z, desired z or descent height not available.")
             return
         
-        # Adaptive descent height
-        if (self.drone_z > 5.0):
-            self.descent_height = 1.0
-        else:
+        # Adaptive gain for z and descent height
+        if (self.drone_z < 1.0):
+            self.kz = 0.2
             self.descent_height = 0.2
-
+ 
         # Calculate error in z
         error_z = self.drone_z - self.descent_height
 
   
         if not self.setpoint_published:
-            #self.goal_z = self.current_z + self.descent_height
             self.camera_goal_z = self.drone_z - self.descent_height
-
-            #self.get_logger().info("[D] Current position x=%.2fm, y=%.2fm, z=%.2f" % (self.current_x, self.current_y, self.drone_z))
-            #self.get_logger().info("[D] Descending to position x=%.2fm, y=%.2fm, z=%.2f" % (self.current_x, self.current_y, self.camera_goal_z))                       
-            
-            #self.get_logger().info("[D] Control velocity x=%.2fm/s, y=%.2fm/s, z=%.2fm/s" % (0.0, 0.0, self.vz))
-            ## Generate  z = start_z + t * (end_z - start_z)te linear trajectory for descent
-            # waypoints = self.generate_linear_trajectory(self.current_x, self.current_y, self.desired_x, self.desired_y, self.current_z, self.current_z + self.descent_height, num_points=2)
-            
-            # # Publish trajectory setpoints
-            # for waypoint in waypoints:
-            #     self.publish_trajectory_setpoint(waypoint[0], waypoint[1], waypoint[2])
             self.setpoint_published = True
         
         error_z = self.drone_z - self.camera_goal_z
@@ -265,10 +227,7 @@ class OffboardLandingController(Node):
         self.vz = self.kz * error_z
         self.get_logger().info("[D] Publishing velocity setpoint at heigh: %.2f" % self.drone_z)
         self.publish_velocity_setpoint(0.0, 0.0, self.vz)
-        #self.get_logger().info("[D] Current position x=%.2fm, y=%.2fm, z=%.2f" % (self.current_x, self.current_y, self.drone_z))
-        #self.get_logger().info("[D] Descending to position x=%.2fm, y=%.2fm, z=%.2f" % (self.current_x, self.current_y, self.camera_goal_z))                       
-        #self.get_logger().info("[D] Control velocity x=%.2fm/s, y=%.2fm/s, z=%.2fm/s" % (0.0, 0.0, self.vz))
-
+    
         # Condition to switch to landing state
         if abs(self.drone_z) < self.land_dist_th:
             self.state = "Landing"
@@ -278,25 +237,15 @@ class OffboardLandingController(Node):
             self.get_logger().info("[D] Vertical Error = %.2fm" % abs(error_z))
             self.state = "Correction"
             # Reset setpoint_published flag
-            self.setpoint_published = False
+            self.setpoint_published = False     
 
         self.drone_x = None
         self.drone_y = None
-        self.drone_z = None
+        self.drone_z = None 
 
     def distance_to_desired_position(self, x1, y1, x2, y2):
         """Calculate the Euclidean distance between two points."""
         return np.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2)
-
-    def publish_trajectory_setpoint(self, x: float, y: float, z: float):
-        """Publish the trajectory setpoint."""
-        msg = TrajectorySetpoint()
-        position_array = np.array([x, y, z], dtype=np.float32)
-
-        # Assign the array to msg.position
-        msg.position = position_array
-        msg.timestamp = int(self.get_clock().now().nanoseconds / 1000)
-        self.trajectory_setpoint_publisher.publish(msg)
 
     def publish_velocity_setpoint(self, vx: float, vy: float, vz: float):
         """Publish the velocity setpoint."""

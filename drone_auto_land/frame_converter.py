@@ -68,7 +68,7 @@ class FrameConverter(Node):
             'vz': 0
         }
 
-        self.tvec_C_D = np.array([0.05, 0, 0.04])
+        self.tvec_C_D = np.array([0.06, 0, 0.04])
         self.rvec_C_D = np.array([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
 
 

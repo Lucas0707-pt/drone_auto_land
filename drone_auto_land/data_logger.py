@@ -25,8 +25,9 @@ class DataLogger(Node):
         
         self.aruco_pose_camera_sub = self.create_subscription(
             PoseStamped, 'aruco_pose_camera', self.aruco_pose_camera_callback, 10)
-        self.aruco_pose_local_sub = self.create_subscription(
-            PoseStamped, 'aruco_pose_local', self.aruco_pose_local_callback, 10)
+        self.aruco_pose_drone_sub = self.create_subscription(
+            PoseStamped, 'aruco_pose_drone', self.aruco_pose_drone_callback, 10)
+        
         self.vehicle_odometry_sub = self.create_subscription(
             VehicleOdometry, '/fmu/out/vehicle_odometry', self.vehicle_odometry_callback, qos_profile)
         self.current_land_state_sub = self.create_subscription(
@@ -50,14 +51,14 @@ class DataLogger(Node):
         }
         self.save_data_pose('aruco_pose_camera.csv', data)
 
-    def aruco_pose_local_callback(self, msg):
+    def aruco_pose_drone_callback(self, msg):
         data = {
             'timestamp': int(msg.header.stamp.sec * 1e6 + msg.header.stamp.nanosec * 1e-3),
             'position_x': msg.pose.position.x,
             'position_y': msg.pose.position.y,
             'position_z': msg.pose.position.z
         }
-        self.save_data_pose('aruco_pose_local.csv', data)
+        self.save_data_pose('aruco_pose_drone.csv', data)
 
     def vehicle_odometry_callback(self, msg):
         data = {
@@ -94,7 +95,7 @@ class DataLogger(Node):
             'velocity_y': float(msg.velocity[1]),
             'velocity_z': float(msg.velocity[2]),
         }
-        self.save_data_trajectory('velocity_setpoint.csv', data)
+        self.save_data_trajectory('trajectory_setpoint.csv', data)
 
 
     def save_data_pose(self, filename, data):

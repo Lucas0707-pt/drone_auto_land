@@ -32,8 +32,8 @@ class MarkerDetector(Node):
         self.bridge = CvBridge()
         self.marker_id = 118
         self.embedded_marker_id = 345
-        self.marker_size = 0.295
-        self.embedded_marker_size = 0.042
+        self.marker_size = 0.50
+        self.embedded_marker_size = 0.071
 
 
         self.marker_bits = np.array([[1, 0, 0, 0, 0],
