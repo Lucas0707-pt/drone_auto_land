@@ -26,7 +26,7 @@ print(f"Start timestamp in local time zone: {start_timestamp_local}")
 
 # Define the list of CSV filenames
 current_land_state_file = log_dir + "current_land_state.csv"
-velocity_setpoint_file = log_dir + "velocity_setpoint.csv"
+velocity_setpoint_file = log_dir + "trajectory_setpoint.csv"
 vehicle_odometry_file = log_dir + "vehicle_odometry.csv"
 
 # Function to check if files exist
