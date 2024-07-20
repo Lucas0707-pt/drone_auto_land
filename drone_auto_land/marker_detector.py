@@ -168,9 +168,9 @@ class MarkerDetector(Node):
     
     def get_bits(self, img, corners, perspectiveRemoveIgnoredMarginPerCell=0.13):
 
-        dst_pts = np.array([[0, 0], [49, 0], [49, 49], [0, 49]], dtype=np.float32)
+        dst_pts = np.array([[0, 0], [299, 0], [299, 299], [0, 299]], dtype=np.float32)
         M = cv.getPerspectiveTransform(corners, dst_pts)
-        warped = cv.warpPerspective(img, M, (50, 50))
+        warped = cv.warpPerspective(img, M, (300, 300))
         self.warped_debug = warped
         self.warped_pub.publish(self.bridge.cv2_to_imgmsg(warped, encoding='bgr8'))
         

@@ -82,7 +82,7 @@ class OffboardLandingController(Node):
         self.kz = 1.0
 
         # Create a timer to publish control commands
-        self.timer = self.create_timer(0.1, self.timer_callback)
+        self.timer = self.create_timer(0.066, self.timer_callback)
 
     def vehicle_status_callback(self, msg):
         self.nav_state = msg.nav_state

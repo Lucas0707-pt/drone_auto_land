@@ -1,7 +1,7 @@
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy, DurabilityPolicy
-from px4_msgs.msg import VehicleOdometry
+from px4_msgs.msg import VehicleOdometry, TrajectorySetpoint
 from sensor_msgs.msg import Image
 from geometry_msgs.msg import PoseStamped
 import numpy as np
@@ -23,7 +23,7 @@ class FrameConverter(Node):
             fourcc = cv.VideoWriter_fourcc(*'XVID')
             now = datetime.datetime.now()
             filename = f'src/drone_auto_land/videos/{now.year}_{now.month}_{now.day}_{now.hour}_{now.minute}_{now.second}.avi'
-            self.out = cv.VideoWriter(filename, fourcc, 10.0, (640, 480))
+            self.out = cv.VideoWriter(filename, fourcc, 15.0, (640, 480))
 
         # Configure QoS profile for publishing and subscribing
         qos_profile = QoSProfile(
@@ -37,6 +37,9 @@ class FrameConverter(Node):
 
         self.vehicle_odometry_sub = self.create_subscription(
             VehicleOdometry, '/fmu/out/vehicle_odometry', self.vehicle_odometry_callback, qos_profile)
+        
+        self.trajectory_setpoint_sub = self.create_subscription(
+            TrajectorySetpoint, '/fmu/in/trajectory_setpoint', self.trajectory_setpoint_callback, qos_profile)
 
         self.aruco_pose_camera_sub = self.create_subscription(
             PoseStamped, 'aruco_pose_camera', self.aruco_pose_camera_callback, 10)
@@ -56,21 +59,20 @@ class FrameConverter(Node):
 
         self.vehicle_odometry = {
             'timestamp': None,
-            'x': 0,
-            'y': 0,
-            'z': 0
+            'x': None,
+            'y': None,
+            'z': None
         }
 
         self.velocity_setpoint = {
             'timestamp': None,
-            'vx': 0,
-            'vy': 0,
-            'vz': 0
+            'vx': None,
+            'vy': None,
+            'vz': None
         }
 
         self.tvec_C_D = np.array([0.06, 0, 0.04])
         self.rvec_C_D = np.array([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
-
 
     def aruco_image_callback(self, msg):
         cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
@@ -100,11 +102,6 @@ class FrameConverter(Node):
     def frame_conversion(self):
         aruco_pose_drone = self.convert_cam2drone()
         self.publish_aruco_pose_drone(aruco_pose_drone[0], aruco_pose_drone[1], aruco_pose_drone[2])
-
-        def convert_quat2rot(self):
-            return np.array([[1 - 2 * self.vehicle_odometry['qy']**2 - 2 * self.vehicle_odometry['qz']**2, 2 * self.vehicle_odometry['qx'] * self.vehicle_odometry['qy'] - 2 * self.vehicle_odometry['qz'] * self.vehicle_odometry['qw'], 2 * self.vehicle_odometry['qx'] * self.vehicle_odometry['qz'] + 2 * self.vehicle_odometry['qy'] * self.vehicle_odometry['qw']],
-                        [2 * self.vehicle_odometry['qx'] * self.vehicle_odometry['qy'] + 2 * self.vehicle_odometry['qz'] * self.vehicle_odometry['qw'], 1 - 2 * self.vehicle_odometry['qx']**2 - 2 * self.vehicle_odometry['qz']**2, 2 * self.vehicle_odometry['qy'] * self.vehicle_odometry['qz'] - 2 * self.vehicle_odometry['qx'] * self.vehicle_odometry['qw']],
-                        [2 * self.vehicle_odometry['qx'] * self.vehicle_odometry['qz'] - 2 * self.vehicle_odometry['qy'] * self.vehicle_odometry['qw'], 2 * self.vehicle_odometry['qy'] * self.vehicle_odometry['qz'] + 2 * self.vehicle_odometry['qx'] * self.vehicle_odometry['qw'], 1 - 2 * self.vehicle_odometry['qx']**2 - 2 * self.vehicle_odometry['qy']**2]])
 
     def get_transform_matrix(self, tvec, rvec):
         T = np.eye(4)
