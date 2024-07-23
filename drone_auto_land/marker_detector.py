@@ -23,8 +23,8 @@ class MarkerDetector(Node):
         self.embedded_marker_size = 0.042
 
         # Load the camera matrix and distortion ro
-        camera_matrix_file = 'src/drone_auto_land/drone_auto/camera_parameters/camera_matrix.txt'
-        distortion_coefficients_file = 'src/drone_auto_land/drone_auto/camera_parameters/camera_distortion_coefficients.txt'
+        camera_matrix_file = 'src/drone_auto_land/drone_auto_land/camera_parameters/camera_matrix.txt'
+        distortion_coefficients_file = 'src/drone_auto_land/drone_auto_land/camera_parameters/camera_distortion_coefficients.txt'
         self.camera_matrix = np.loadtxt(camera_matrix_file, delimiter=',')
         self.distortion_coeffs = np.loadtxt(distortion_coefficients_file, delimiter=',')
 
