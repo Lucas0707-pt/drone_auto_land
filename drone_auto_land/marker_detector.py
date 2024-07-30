@@ -19,8 +19,8 @@ class MarkerDetector(Node):
 
         self.marker_id = 118
         self.embedded_marker_id = 345
-        self.marker_size = 1.2
-        self.embedded_marker_size = self.marker_size / 9.0
+        self.marker_size = 1.5
+        self.embedded_marker_size = self.marker_size / 7
 
         # Load the camera matrix and distortion ro
         camera_matrix_file = 'src/drone_auto_land/drone_auto_land/camera_parameters/camera_matrix.txt'
@@ -52,7 +52,8 @@ class MarkerDetector(Node):
         # Perform marker detection
         aruco_dict = cv.aruco.Dictionary_get(cv.aruco.DICT_ARUCO_ORIGINAL)
         parameters = cv.aruco.DetectorParameters_create()
-        #parameters.perspectiveRemoveIgnoredMarginPerCell = 0.4
+        #parameters.cornerRefinementMethod = cv.aruco.CORNER_REFINE_SUBPIX
+        parameters.perspectiveRemoveIgnoredMarginPerCell = 0.3
         corners, ids, _ = cv.aruco.detectMarkers(gray, aruco_dict, parameters=parameters)
 
         # If at least one marker detected

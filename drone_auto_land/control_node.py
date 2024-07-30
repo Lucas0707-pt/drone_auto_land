@@ -59,12 +59,12 @@ class OffboardLandingController(Node):
         self.vx = 0.0
         self.vy = 0.0
         self.vz = 0.0
-        self.descent_height = 0.3  # Height to descend in z
-        self.land_dist_th = 0.55 # Height to land()
+        self.descent_height = 1  # Height to descend in z
+        self.land_dist_th = 0.70 # Height to land()
         self.goal_z = 0.0
         self.camera_goal_z = 0.0
-        self.error_threshold_z = 0.1  # Threshold for z error
-        self.error_threshold_xy = 0.1 # Threshold for x and y error
+        self.error_threshold_z = 0.3  # Threshold for z error
+        self.error_threshold_xy = 0.3 # Threshold for x and y error
         
         self.state = "Correction" # Correction / Descent / Landing
 
@@ -78,11 +78,11 @@ class OffboardLandingController(Node):
         self.offboard_started = False
 
         # Gain associated with velocity value
-        self.k = 0.5
+        self.kxy = 0.1
         self.kz = 1.0
 
         # Create a timer to publish control commands
-        self.timer = self.create_timer(0.066, self.timer_callback)
+        self.timer = self.create_timer(0.1, self.timer_callback)
 
     def vehicle_status_callback(self, msg):
         self.nav_state = msg.nav_state
@@ -94,8 +94,8 @@ class OffboardLandingController(Node):
         self.drone_z = aruco_pose_drone.pose.position.z
 
         # Calculate velocity setpoints
-        self.vx = self.k * self.drone_x
-        self.vy = self.k * self.drone_y
+        self.vx = self.kxy * self.drone_x
+        self.vy = self.kxy * self.drone_y
 
     def publish_offboard_control_heartbeat_signal(self):
         """Publish the offboard control mode."""
@@ -210,9 +210,11 @@ class OffboardLandingController(Node):
             return
         
         # Adaptive gain for z and descent height
-        if (self.drone_z < 1.0):
-            self.kz = 0.2
+        if (self.drone_z < 2):
+            self.kz = 0.25
             self.descent_height = 0.2
+            self.error_threshold_xy = 0.1
+            self.error_threshold_z = 0.1
  
         # Calculate error in z
         error_z = self.drone_z - self.descent_height
