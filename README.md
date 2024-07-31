@@ -1,6 +1,6 @@
 # drone_auto_land
 
-This project is designed to enable a drone to autonomously land on a marker using PX4 as an autopilot and ROS2 for communication. It includes a marker detection system that uses a camera feed to detect and track markers in real-time.
+This project is designed to enable a drone to autonomously land on a marker using PX4 as an autopilot and ROS2 for communication. It includes a marker detection system that uses a camera feed to detect and track markers in real-time as well as perform position correction and altitude descent.
 
 ## Files in the Project
 
@@ -8,9 +8,9 @@ This project is designed to enable a drone to autonomously land on a marker usin
 
 2. `marker_detection.py`: This script uses OpenCV to detect and track markers in real-time. It subscribes to the camera feed and publishes the detected marker's position in the camera frame.
 
-3. `frame_converter.py`: This script converts the camera feed from the camera frame to the local frame. It subscribes to the aruco marker's position in the camera frame and publishes the marker's position in the local frame.
+3. `frame_converter.py`: This script converts the camera feed from the camera frame to the drone's body frame. It subscribes to the aruco marker's position in the camera frame and publishes the marker's position in the body frame.
 
-4. `controller.py`: This script calculates the drone's desired position based on the marker's position in the local frame. It subscribes to the marker's position in the local frame and publishes the desired position for the drone.
+4. `controller.py`: This script calculates the drone's desired velocity based on the marker's position in the body frame and the desired position, which is the origin of that coordinate system. It subscribes to the marker's position in the body frame and publishes the desired velocity for the drone in the PX4.
 
 ## How to Run
 
