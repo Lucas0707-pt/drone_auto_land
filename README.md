@@ -83,6 +83,3 @@ ros2 launch drone_auto_land control.launch.py log:=1
 
 You need to add your camera matrix and distortion coefficients in the 'camera_parameters' folder.
 
-
-
-
