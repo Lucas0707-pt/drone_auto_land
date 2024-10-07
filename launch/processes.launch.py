@@ -6,12 +6,6 @@ from launch.substitutions import LaunchConfiguration
 def generate_launch_description():
     # Declare an argument
 
-    camera_bridge_node = Node(
-        package='drone_auto_land',
-        executable='camera_bridge',
-        name='camera_bridge',
-    )
-
     processes_node = Node(
         package='drone_auto_land',
         executable='processes',
@@ -20,6 +14,5 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        camera_bridge_node,
         processes_node
     ])
