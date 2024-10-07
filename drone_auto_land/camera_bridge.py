@@ -18,8 +18,6 @@ class CameraBridge(Node):
     def camera_image_callback(self):
         ret, frame = self.cap.read()
         if ret:
-            #print current dimensions of the frame
-            #frame = cv.resize(frame, (640, 480))
             msg = self.bridge.cv2_to_imgmsg(frame, encoding='bgr8')
             self.camera_image_pub.publish(msg)
         else:
