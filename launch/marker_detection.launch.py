@@ -1,8 +1,9 @@
 from launch import LaunchDescription
 from launch_ros.actions import Node
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, LogInfo
 from launch.substitutions import LaunchConfiguration
 from launch.conditions import IfCondition
+from launch.conditions import LaunchConfigurationEquals
 
 def generate_launch_description():
     # Declare arguments
@@ -12,7 +13,7 @@ def generate_launch_description():
     )
     
     declare_marker_detector_cmd = DeclareLaunchArgument(
-        'use_opencv', default_value='false',
+        'use_opencv', default_value='0',
         description='Use OpenCV-based marker detector node'
     )
 
@@ -20,19 +21,22 @@ def generate_launch_description():
     record = LaunchConfiguration('record')
     use_opencv = LaunchConfiguration('use_opencv')
 
+    # Log the values of the configurations
+    log_use_opencv = LogInfo(msg=['use_opencv: ', use_opencv])
+
     # Conditional marker detector nodes
     marker_detector_node = Node(
         package='drone_auto_land',
         executable='marker_detector',
         name='marker_detector',
-        condition=IfCondition(LaunchConfiguration('use_opencv').not_equals('true')),
+        condition=LaunchConfigurationEquals('use_opencv', '0')
     )
 
     marker_detector_opencv_node = Node(
         package='drone_auto_land',
         executable='marker_detector_open_cv.py',
         name='marker_detector_open_cv',
-        condition=IfCondition(LaunchConfiguration('use_opencv').equals('true')),
+        condition=LaunchConfigurationEquals('use_opencv', '1')
     )
 
     frame_converter_node = Node(
@@ -45,6 +49,7 @@ def generate_launch_description():
     return LaunchDescription([
         declare_record_cmd,
         declare_marker_detector_cmd,
+        log_use_opencv,
         marker_detector_node,
         marker_detector_opencv_node,
         frame_converter_node,

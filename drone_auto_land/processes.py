@@ -6,7 +6,8 @@ from rclpy.node import Node
 class ProcessesNode(Node):
     def __init__(self):
         super().__init__('processes')
-        self.declare_parameter('headless', 1) 
+        self.declare_parameter('headless', 1)
+        self.headless = bool(self.get_parameter('headless').get_parameter_value().integer_value)
         self.main()
 
     def main(self):
