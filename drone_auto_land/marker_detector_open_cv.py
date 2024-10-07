@@ -17,8 +17,8 @@ class MarkerDetectorOpenCV(Node):
 
         self.bridge = CvBridge()
 
-        self.marker_id = 29
-        self.embedded_marker_id = 33
+        self.marker_id = 118
+        self.embedded_marker_id = 345
         self.marker_size = 0.295
         self.embedded_marker_size = 0.042
 
@@ -50,7 +50,7 @@ class MarkerDetectorOpenCV(Node):
         gray = cv.GaussianBlur(gray, (3, 3), 0)
 
         # Perform marker detection
-        aruco_dict = cv.aruco.Dictionary_get(cv.aruco.DICT_7X7_1000)
+        aruco_dict = cv.aruco.Dictionary_get(cv.aruco.DICT_ARUCO_ORIGINAL)
         parameters = cv.aruco.DetectorParameters_create()
         #parameters.perspectiveRemoveIgnoredMarginPerCell = 0.4
         corners, ids, _ = cv.aruco.detectMarkers(gray, aruco_dict, parameters=parameters)

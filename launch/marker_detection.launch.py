@@ -34,7 +34,7 @@ def generate_launch_description():
 
     marker_detector_opencv_node = Node(
         package='drone_auto_land',
-        executable='marker_detector_open_cv.py',
+        executable='marker_detector_open_cv',
         name='marker_detector_open_cv',
         condition=LaunchConfigurationEquals('use_opencv', '1')
     )
