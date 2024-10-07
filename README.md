@@ -8,6 +8,8 @@ Several branches of this project are adapted for real drones, assuming the drone
 
 1. **`processes.py`**: Runs commands for the project in separate terminals, including starting the MicroXRCEAgent, running the image bridge, and launching the PX4 SITL simulation.
 
+2. **`camera_bridge.py`**: Captures the camera feed and publishes it as a ROS2 topic.
+
 2. **`marker_detector.py`**: Detects and tracks markers in real-time using OpenCV. It subscribes to the camera feed and publishes the detected marker's position in the camera frame.
 
 3. **`marker_detector_open_cv.py`**: An alternative marker detection node using OpenCV, which can be enabled via launch parameters.
