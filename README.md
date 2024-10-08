@@ -10,19 +10,19 @@ Several branches of this project are adapted for real drones, assuming the drone
 
 2. **`camera_bridge.py`**: Captures the camera feed and publishes it as a ROS2 topic.
 
-2. **`marker_detector.py`**: Detects and tracks markers in real-time using OpenCV. It subscribes to the camera feed and publishes the detected marker's position in the camera frame.
+3. **`marker_detector.py`**: Detects and tracks markers in real-time using traditional marker detection techniques. It subscribes to the camera feed and publishes the detected marker's position in the camera frame.
 
-3. **`marker_detector_open_cv.py`**: An alternative marker detection node using OpenCV, which can be enabled via launch parameters.
+4. **`marker_detector_open_cv.py`**: An alternative node for marker detection using OpenCV's ArUco marker module, which can be enabled via launch parameters.
 
-4. **`frame_converter.py`**: Converts the camera feed from the camera frame to the drone's body frame. It subscribes to the marker’s position in the camera frame and publishes the position in the drone’s body frame.
+5. **`frame_converter.py`**: Converts the camera feed from the camera frame to the drone's body frame. It subscribes to the marker’s position in the camera frame and publishes the position in the drone’s body frame.
 
-5. **`controller.py`**: Calculates the drone's desired velocity based on the marker’s position in the body frame, targeting the origin of the coordinate system. It subscribes to the marker’s position in the body frame and publishes the velocity commands for the PX4 autopilot.
+6. **`controller.py`**: Calculates the drone's desired velocity based on the marker’s position in the body frame, targeting the origin of the coordinate system. It subscribes to the marker’s position in the body frame and publishes the velocity commands for the PX4 autopilot.
 
-6. **`data_logger.py`**: Logs various data during the landing process, such as the drone's odometry, the marker’s position, and the landing sequence state. Data is saved into CSV files for further analysis.
+7. **`data_logger.py`**: Logs various data during the landing process, such as the drone's odometry, the marker’s position, and the landing sequence state. Data is saved into CSV files for further analysis.
 
-7. **`data_plot.py`**: Generates 3D plots to visualize the drone’s trajectory during the landing procedure, plotting the marker's position relative to the drone and the drone's odometry.
+8. **`data_plot.py`**: Generates 3D plots to visualize the drone’s trajectory during the landing procedure, plotting the marker's position relative to the drone and the drone's odometry.
 
-8. **`velocity_plot.py`**: Generates time-series plots comparing the drone’s velocity setpoints and actual velocities. It highlights transitions between states like correction, descent, and landing.
+9. **`velocity_plot.py`**: Generates time-series plots comparing the drone’s velocity setpoints and actual velocities. It highlights transitions between states like correction, descent, and landing.
 
 ## Data Logger Output Files
 
