@@ -74,12 +74,12 @@ colcon build --packages-select drone_auto_land
 source install/local_setup.bash
 ```
 
-2. **Run processes with Gazebo GUI (optional) and PX4 SITL simulation:**
+2. **Run processes with Camera and MicroXRCEAgent:**
 
 The following command launches the necessary processes for running the drone in simulation mode. Set headless:=1 to disable the Gazebo GUI.
 
 ```bash
-ros2 launch drone_auto_land processes.launch.py headless:=1
+ros2 launch drone_auto_land processes.launch.py
 ```
 
 3. **Start marker detection and pose estimation with recording (optional):**
