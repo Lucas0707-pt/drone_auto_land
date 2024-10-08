@@ -1,41 +1,47 @@
-# drone_auto_land
+# drone_auto_land (Simulation)
 
-This project enables a drone to autonomously land on a marker using PX4 as an autopilot and ROS2 for marker detection and high-level velocity control. This interaction is facilitated by PX4's flight mode [Offboard](https://docs.px4.io/main/en/flight_modes/offboard.html). The system includes a marker detection system that utilizes a camera feed to detect and track markers in real-time, performing position correction and altitude descent.
+This project enables a simulated drone to autonomously land on a marker using PX4 as an autopilot and ROS2 for marker detection and high-level velocity control. This is done via PX4's [Offboard](https://docs.px4.io/main/en/flight_modes/offboard.html) mode. In the simulation, a virtual camera and markers are used, and the drone’s behavior is tested in a simulated Gazebo environment.
 
-Several branches of this project are adapted for real drones, assuming the drone is equipped with a Holybro Pixhawk 4 running PX4, along with sensor integration and a USB interface camera (e.g., Logitech C920). A companion computer running [Ubuntu 22.04](https://ubuntu.com/download/raspberry-pi) is required, with the dependencies outlined below. Other branches are adapted for simulation environments using the same dependencies and additional models, which are mentioned in the "Complementary repositories" section.
+The system simulates a camera feed for marker detection, enabling real-time tracking and positioning corrections. The drone autonomously descends until it lands on the marker.
+
+This branch assumes a simulated drone, using models from a custom Gazebo world, with PX4 running in SITL (Software in the Loop) mode. No actual hardware is required, and the camera feed is simulated directly in Gazebo.
 
 ## Files in the Project
 
-1. **`processes.py`**: Runs commands for the project in separate terminals, including starting the MicroXRCEAgent, running the image bridge, and launching the PX4 SITL simulation.
+1. **`processes.py`**: Starts the simulation environment, including PX4 SITL and simulated image processing. It runs necessary processes like MicroXRCEAgent and commands to start Gazebo with the simulated world.
 
-2. **`marker_detector.py`**: Detects and tracks markers in real-time using OpenCV. It subscribes to the camera feed and publishes the detected marker's position in the camera frame.
+2. **`marker_detector.py`**: Detects and tracks markers in real-time using traditional marker detection techniques. It subscribes to the simulated camera feed from Gazebo and publishes the detected marker's position in the camera frame.
 
-3. **`marker_detector_open_cv.py`**: An alternative marker detection node using OpenCV, which can be enabled via launch parameters.
+3. **`marker_detector_open_cv.py`**: An alternative node for marker detection using OpenCV's ArUco marker module, which can be enabled via launch parameters.
 
-4. **`frame_converter.py`**: Converts the camera feed from the camera frame to the drone's body frame. It subscribes to the marker’s position in the camera frame and publishes the position in the drone’s body frame.
+4. **`frame_converter.py`**: Converts the simulated camera feed from the camera frame to the drone's body frame. It subscribes to the marker’s position in the camera frame and publishes the position in the drone’s body frame.
 
-5. **`controller.py`**: Calculates the drone's desired velocity based on the marker’s position in the body frame, targeting the origin of the coordinate system. It subscribes to the marker’s position in the body frame and publishes the velocity commands for the PX4 autopilot.
+5. **`controller.py`**: Computes velocity commands based on the marker's position relative to the drone’s body frame, guiding the drone to land on the marker. It subscribes to the marker’s position in the body frame and publishes velocity commands to PX4 SITL.
 
-6. **`data_logger.py`**: Logs various data during the landing process, such as the drone's odometry, the marker’s position, and the landing sequence state. Data is saved into CSV files for further analysis.
+6. **`data_logger.py`**: Logs various data points during the simulated landing process, such as the drone's odometry and the marker's position. Data is saved in CSV format for post-analysis.
 
-7. **`data_plot.py`**: Generates 3D plots to visualize the drone’s trajectory during the landing procedure, plotting the marker's position relative to the drone and the drone's odometry.
+7. **`data_plot.py`**: Generates 3D plots to visualize the drone’s simulated trajectory relative to the marker. It plots the drone’s odometry and the marker's position.
 
-8. **`velocity_plot.py`**: Generates time-series plots comparing the drone’s velocity setpoints and actual velocities. It highlights transitions between states like correction, descent, and landing.
+8. **`velocity_plot.py`**: Generates time-series plots comparing the drone’s velocity setpoints and actual velocities during the simulation.
+
+## Key Differences from Real-Life Setup
+
+- **No `camera_bridge.py`**: Since the camera feed is simulated in Gazebo, there's no need for a `camera_bridge.py` node. The simulated camera is preconfigured in the Gazebo environment.
+- **PX4 SITL**: Instead of using a physical drone, PX4 runs in SITL mode, simulating the drone's behavior.
+- **Simulated Environment**: The Gazebo world includes a simulated marker and camera, eliminating the need for real sensors or cameras.
 
 ## Data Logger Output Files
 
-- **`aruco_pose_camera.csv`**: Records the ArUco marker’s position in the camera frame.
-- **`aruco_pose_drone.csv`**: Records the ArUco marker’s position in the drone’s body frame.
-- **`vehicle_odometry.csv`**: Records the drone’s position, orientation, and velocity.
-- **`trajectory_setpoint.csv`**: Logs velocity setpoints sent to the drone.
-- **`current_land_state.csv`**: Logs the current state of the landing process.
-3. `frame_converter.py`: This script converts the camera feed from the camera frame to the drone's body frame. It subscribes to the aruco marker's position in the camera frame and publishes the marker's position in the body frame.
-
-4. `controller.py`: This script calculates the drone's desired velocity based on the marker's position in the body frame and the desired position, which is the origin of that coordinate system. It subscribes to the marker's position in the body frame and publishes the desired velocity for the drone in the PX4.
+- **`aruco_pose_camera.csv`**: Logs the simulated ArUco marker’s position in the camera frame.
+- **`aruco_pose_drone.csv`**: Logs the simulated ArUco marker’s position in the drone’s body frame.
+- **`vehicle_odometry.csv`**: Records the drone’s simulated position, orientation, and velocity.
+- **`trajectory_setpoint.csv`**: Logs velocity setpoints sent to the drone during the simulation.
+- **`current_land_state.csv`**: Logs the current landing state in the simulated environment.
 
 ## How to Run
 
-### Workspace Setup (after PX4 and ROS2 setup)
+### Workspace Setup (for Simulation)
+
 
 1. **Create a new workspace:**
 
@@ -72,12 +78,12 @@ colcon build --packages-select drone_auto_land
 source install/local_setup.bash
 ```
 
-2. **Run processes with Gazebo GUI (optional) and PX4 SITL simulation:**
+2. **Run processes with Camera and MicroXRCEAgent:**
 
 The following command launches the necessary processes for running the drone in simulation mode. Set headless:=1 to disable the Gazebo GUI.
 
 ```bash
-ros2 launch drone_auto_land processes.launch.py headless:=1
+ros2 launch drone_auto_land processes.launch.py
 ```
 
 3. **Start marker detection and pose estimation with recording (optional):**
