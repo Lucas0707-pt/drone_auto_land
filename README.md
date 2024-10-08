@@ -31,9 +31,6 @@ Several branches of this project are adapted for real drones, assuming the drone
 - **`vehicle_odometry.csv`**: Records the drone’s position, orientation, and velocity.
 - **`trajectory_setpoint.csv`**: Logs velocity setpoints sent to the drone.
 - **`current_land_state.csv`**: Logs the current state of the landing process.
-3. `frame_converter.py`: This script converts the camera feed from the camera frame to the drone's body frame. It subscribes to the aruco marker's position in the camera frame and publishes the marker's position in the body frame.
-
-4. `controller.py`: This script calculates the drone's desired velocity based on the marker's position in the body frame and the desired position, which is the origin of that coordinate system. It subscribes to the marker's position in the body frame and publishes the desired velocity for the drone in the PX4.
 
 ## How to Run
 
