@@ -82,7 +82,7 @@ ros2 launch drone_auto_land processes.launch.py
 3. **Start marker detection and pose estimation with recording (optional):**
     
 ```bash
-ros2 launch drone_auto_land marker_detection.launch.py record:=1 use_opencv:=true
+ros2 launch drone_auto_land marker_detection.launch.py record:=1 use_opencv:=1
 ```
 
 4. **Start the control node with logging (optional):**
